@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TCG base</title>
+<style>
+  :root {
+    --fondo: #16161e; --panel: #1f1f2b; --texto: #eeeeee; --acento: #f5b301;
+    --w: clamp(84px, 11vh, 130px);    /* ancho de cartas de banca y mano */
+    --wa: clamp(116px, 17vh, 180px);  /* ancho de las cartas activas */
+    --lateral: 340px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; display: flex; background: var(--fondo); color: var(--texto);
+         font: 15px system-ui, sans-serif; }
+  #tablero { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; min-width: 0; overflow-y: auto; }
+  #lateral { width: var(--lateral); background: var(--panel); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  #preg { display: flex; flex-direction: column; gap: 6px; max-height: 55%; overflow-y: auto; }
+  #preg h3 { margin: 0 0 4px; font-size: 16px; }
+  .op { background: #2d2d40; color: var(--texto); border: 1px solid #444; border-radius: 6px;
+        padding: 8px 10px; text-align: left; cursor: pointer; font: inherit; }
+  .op:hover { background: #3a3a55; border-color: var(--acento); }
+  .banner { background: var(--acento); color: #111; font-weight: 700; padding: 8px; border-radius: 6px; text-align: center; }
+  #log { flex: 1; overflow-y: auto; font-size: 12.5px; color: #bbbbbb; white-space: pre-wrap;
+         border-top: 1px solid #333; padding-top: 8px; }
+  .info { color: #bbbbbb; font-size: 13px; margin-bottom: 2px; }
+  .info b { color: var(--texto); }
+  .fila { display: flex; gap: 26px; align-items: flex-start; }
+  .cap { font-size: 11px; color: #888888; text-transform: uppercase; margin-bottom: 2px; }
+  .cartas { display: flex; gap: 8px; }
+  .carta { position: relative; width: var(--w); cursor: zoom-in; }
+  .activa .carta { width: var(--wa); }
+  .carta img { width: 100%; display: block; border-radius: 8px; box-shadow: 0 2px 6px #000a; background: #2a2a38; }
+  .carta:hover img { outline: 2px solid var(--acento); }
+  .hp { height: 5px; background: #444444; border-radius: 3px; margin-top: 3px; overflow: hidden; }
+  .hp span { display: block; height: 100%; background: #4caf50; }
+  .dato { font-size: 11px; text-align: center; color: #dddddd; }
+  .tag { font-size: 10px; background: #3a3a4d; border-radius: 3px; padding: 1px 4px; margin: 2px 2px 0 0; display: inline-block; }
+  .vacio { width: var(--w); height: calc(var(--w) * 1.4); border: 2px dashed #333333; border-radius: 8px; }
+  .activa .vacio { width: var(--wa); height: calc(var(--wa) * 1.4); }
+  .centro { text-align: center; color: #aaaaaa; font-size: 13px; }
+
+  /* Vista ampliada: fija en pantalla, del lado opuesto a la carta señalada, así nunca se corta */
+  #zoom { position: fixed; top: 50%; transform: translateY(-50%); width: min(400px, 54vh);
+          display: none; z-index: 50; pointer-events: none; }
+  #zoom.izq { left: 14px; }
+  #zoom.der { right: calc(var(--lateral) + 40px); }
+  #zoom img { width: 100%; display: block; border-radius: 14px; box-shadow: 0 8px 30px #000d; }
+  #zoom div { margin-top: 6px; text-align: center; font-size: 14px; background: #000b; border-radius: 6px; padding: 4px 8px; }
+</style>
+</head>
+<body>
+<div id="tablero">Cargando...</div>
+<div id="lateral">
+  <div id="preg"></div>
+  <div id="log"></div>
+</div>
+<div id="zoom"><img alt=""><div></div></div>
+<script>
+const COMBATE = ["Atacante", "Tanque", "Mago"];
+let ultimo = "";
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function carta(c) {
+  const comb = COMBATE.includes(c.categoria);
+  const extra = [];
+  if (comb) extra.push(`PS ${c.ps}/${c.ps_max} · Energía ${c.energia}/${c.costo}`);
+  if (c.equipo) extra.push("Equipo: " + c.equipo);
+  c.estados.forEach(e => extra.push(e));
+  const src = `/carta/${encodeURIComponent(c.nombre)}.png`;
+  let h = `<div class="carta" data-img="${src}" data-dato="${esc(extra.join(" · "))}">` +
+          `<img src="${src}" alt="${esc(c.nombre)}">`;
+  if (comb) {
+    h += `<div class="hp"><span style="width:${Math.max(0, 100 * c.ps / c.ps_max)}%"></span></div>`;
+    h += `<div class="dato">PS ${c.ps}/${c.ps_max} · Energía ${c.energia}/${c.costo}</div>`;
+  }
+  if (c.equipo) h += `<span class="tag">${esc(c.equipo)}</span>`;
+  c.estados.forEach(e => { h += `<span class="tag">${esc(e)}</span>`; });
+  return h + "</div>";
+}
+
+const zona = (cap, cartas, clase = "") =>
+  `<div class="zona ${clase}"><div class="cap">${cap}</div><div class="cartas">` +
+  (cartas.length ? cartas.map(carta).join("") : '<div class="vacio"></div>') + "</div></div>";
+
+function jugador(j, clase, meta) {
+  const libre = j.energia_libre ? ` · Energía por asignar: <b>${j.energia_libre}</b>` : "";
+  return `<div class="jugador ${clase}"><div class="info"><b>${esc(j.nombre)}</b> · Puntos ${j.puntos}/${meta}` +
+    ` · Mazo ${j.mazo} · Mano ${j.mano_n}${libre}</div>` +
+    `<div class="fila">${zona("Activa", j.activa ? [j.activa] : [], "activa")}${zona("Banca", j.banca)}</div></div>`;
+}
+
+function render(d) {
+  const s = d.snap;
+  if (s) {
+    document.getElementById("tablero").innerHTML =
+      jugador(s.rival, "rival", s.puntos_meta) +
+      `<div class="centro">Terreno: <b>${s.terreno ? esc(s.terreno) : "—"}</b></div>` +
+      jugador(s.yo, "yo", s.puntos_meta) +
+      `<div class="mano">${zona("Tu mano", s.yo.mano)}</div>`;
+  }
+  let h = "";
+  if (s && s.terminado) h += `<div class="banner">${s.ganador ? "¡Ganó " + esc(s.ganador) + "!" : "Empate"}</div>`;
+  if (d.pregunta) {
+    h += `<h3>${esc(d.pregunta.titulo)}</h3>`;
+    d.pregunta.opciones.forEach((o, i) => {
+      h += `<button class="op" onclick="elegir(${d.pregunta.id}, ${i})">${esc(o)}</button>`;
+    });
+  } else {
+    h += "<h3>Jugando el rival...</h3>";
+  }
+  document.getElementById("preg").innerHTML = h;
+  const log = document.getElementById("log");
+  log.textContent = d.log.join("\n");
+  log.scrollTop = log.scrollHeight;
+}
+
+async function tick() {
+  try {
+    const t = await (await fetch("/estado")).text();
+    if (t === ultimo) return;
+    ultimo = t;
+    render(JSON.parse(t));
+  } catch (e) { /* servidor cerrado o reiniciando */ }
+}
+
+async function elegir(id, idx) {
+  await fetch("/elegir", { method: "POST", body: JSON.stringify({ id, idx }) });
+  tick();
+}
+
+// Vista ampliada al pasar el mouse por una carta
+const zoom = document.getElementById("zoom");
+document.addEventListener("mouseover", e => {
+  const c = e.target.closest(".carta");
+  if (!c) { zoom.style.display = "none"; return; }
+  const r = c.getBoundingClientRect();
+  const centroTablero = (window.innerWidth - 340) / 2;
+  zoom.className = (r.left + r.width / 2 < centroTablero) ? "der" : "izq";
+  zoom.querySelector("img").src = c.dataset.img;
+  const dato = zoom.querySelector("div");
+  dato.textContent = c.dataset.dato;
+  dato.style.display = c.dataset.dato ? "block" : "none";
+  zoom.style.display = "block";
+});
+document.addEventListener("mouseout", e => { if (!e.relatedTarget) zoom.style.display = "none"; });
+
+setInterval(tick, 400);
+tick();
+</script>
+</body>
+</html>
