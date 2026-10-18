@@ -11,6 +11,10 @@ PUNTOS_PARA_GANAR = 3
 TAM_BANCA = 3
 MANO_INICIAL = 5
 MAX_TURNOS = 150
+DANO_QUEMADURA = 10    # Nido de la dragona chichoba: daño por turno de la carta quemada
+TURNOS_QUEMADURA = 3
+BOOST_NIDO = 20        # Masimo en el Nido: daño extra en sus ataques
+EXTRA_MASIMO = 20      # Pendejo bts: daño extra que recibe Masimo si sale cruz
 PAUSA_CPU = float(os.environ.get("TCG_PAUSA", "0.6"))
 
 VENTAJA = {"Atacante": "Mago", "Mago": "Tanque", "Tanque": "Atacante"}
@@ -40,6 +44,9 @@ class Carta:
         self.turnos_activo = 0
         self.cargas = 0
         self.veneno = 0
+        self.quemadura = 0
+        self.boost = 0
+        self.dano_extra = 0   # daño extra que recibe esta carta durante un ataque (Masimo)
 
     @property
     def es_combate(self):
@@ -57,6 +64,10 @@ class Carta:
             s += " (Embobado)"
         if self.veneno:
             s += f" (Gangrena {self.veneno})"
+        if self.quemadura:
+            s += f" (Quemadura {self.quemadura})"
+        if self.boost:
+            s += f" (+{self.boost} daño)"
         if self.escudo:
             s += f" (Escudo -{self.escudo})"
         if self.nombre == "Tay":
@@ -180,6 +191,10 @@ def datos_carta(c):
     estados = [n for n, v in (("Confundido", c.confundido), ("Embobado", c.embobado)) if v]
     if c.veneno:
         estados.append(f"Gangrena {c.veneno}")
+    if c.quemadura:
+        estados.append(f"Quemadura {c.quemadura}")
+    if c.boost:
+        estados.append(f"+{c.boost} daño")
     if c.escudo:
         estados.append(f"Escudo -{c.escudo}")
     if c.nombre == "Tay":
@@ -248,13 +263,13 @@ class Juego:
             b += 10
         if c.equipo and c.equipo.nombre == "Hacha oxidada":
             b += 30 if c.nombre in ("Geeksito", "Chichotas") else 20
-        return b
+        return b + c.boost
 
     def atk(self, c, d, base):
         self.golpear(c, d, (base + self.bonus(c)) * mult(c, d))
 
     def golpear(self, c, d, bruto):
-        dano = bruto - d.escudo
+        dano = bruto + d.dano_extra - d.escudo
         if c.embobado:
             dano -= 20
         dano = max(0, int(dano))
@@ -286,7 +301,16 @@ class Juego:
                 print("  Confundido: sale cruz, el ataque falla")
                 return
             print("  Confundido: sale cara, el ataque sigue")
-        ATAQUES.get(c.nombre, a_basico)(self, yo, rv, c, d)
+        if d.nombre == "Masimo":
+            if random.random() < 0.5:
+                print("  Pendejo bts: sale cara, el ataque falla")
+                return
+            print(f"  Pendejo bts: sale cruz, el ataque hace {EXTRA_MASIMO} de daño más")
+            d.dano_extra = EXTRA_MASIMO
+        try:
+            ATAQUES.get(c.nombre, a_basico)(self, yo, rv, c, d)
+        finally:
+            d.dano_extra = 0
         if c.equipo and c.equipo.nombre == "Hacha oxidada" and d.ps > 0 and d is rv.activa:
             d.veneno = 3
             print(f"  Gangrena: {d.nombre} queda envenenado (3 turnos)")
@@ -347,6 +371,20 @@ class Juego:
         yo.mano.remove(c)
         self.terreno = c.nombre
         print(f"  {yo.nombre} juega el Terreno {c.nombre}")
+        if c.nombre == "Nido de la dragona chichoba":
+            self.nido_chichoba()
+
+    def nido_chichoba(self):
+        for j in self.jugadores:
+            a = j.activa
+            if not a:
+                continue
+            if a.nombre == "Masimo":
+                a.boost += BOOST_NIDO
+                print(f"  {a.nombre} aguanta el fuego y se boostea: +{BOOST_NIDO} de daño")
+            else:
+                a.quemadura = TURNOS_QUEMADURA
+                print(f"  Quemadura: {a.nombre} se quema ({TURNOS_QUEMADURA} turnos)")
 
     def retirar(self, yo, b):
         a = yo.activa
@@ -536,7 +574,12 @@ class Juego:
             c.ps = max(0, c.ps - 10)
             c.veneno -= 1
             print(f"  Gangrena: {c.nombre} pierde 10 PS (PS {c.ps}/{c.ps_max})")
-        if envenenados:
+        quemados = [c for c in yo.en_juego() if c.quemadura]
+        for c in quemados:
+            c.ps = max(0, c.ps - DANO_QUEMADURA)
+            c.quemadura -= 1
+            print(f"  Quemadura: {c.nombre} pierde {DANO_QUEMADURA} PS (PS {c.ps}/{c.ps_max})")
+        if envenenados or quemados:
             self.resolver_kos()
         for c in rv.en_juego():
             c.escudo = 0
