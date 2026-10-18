@@ -13,6 +13,12 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
+try:  # Linux: que cada hilo no se quede con su propia reserva de memoria (baja el uso en Render)
+    import ctypes
+    ctypes.CDLL("libc.so.6").mallopt(-8, 2)
+except Exception:
+    pass
+
 from base import (COPIAS_MAX, COPIAS_POR_RAREZA, Juego, MIN_COMBATE, PUNTOS_PARA_GANAR, TAM_MAZO,
                   copias_max, validar_mazo)
 from cartas import CARTAS
@@ -79,7 +85,7 @@ class Sala:
         self.cerrada_en = 0.0
         self.juego = None
         self.abortar = None
-        self.mazos = [None, None]
+        self.mazos = [None, None]      # mazo elegido por cada asiento (lista de nombres de cartas)
 
     @property
     def completa(self):
@@ -308,15 +314,26 @@ def limpiador():
 _cache = {}
 
 
+# Dibujar una carta usa ~50 MB de memoria temporal. Render gratis tiene 512 MB, así que se dibuja
+# UNA carta por vez: si 30 personas/pestañas piden cartas a la vez, esperan su turno en vez de
+# dibujar todas juntas (eso era lo que tumbaba el servidor con "Ran out of memory").
+_dibujo = threading.RLock()
+
+
 def png_de(nombre):
-    if nombre not in _cache:
-        datos = next((d for d in CARTAS if d["nombre"] == nombre), None)
-        if datos is None:
-            return None
-        from visual import dibujar_carta
-        buf = io.BytesIO()
-        dibujar_carta(datos).save(buf, "PNG")
-        _cache[nombre] = buf.getvalue()
+    if nombre in _cache:
+        return _cache[nombre]
+    datos = next((d for d in CARTAS if d["nombre"] == nombre), None)
+    if datos is None:
+        return None
+    with _dibujo:
+        if nombre not in _cache:  # otro hilo pudo dibujarla mientras esperábamos
+            from visual import dibujar_carta
+            buf = io.BytesIO()
+            img = dibujar_carta(datos)
+            img.save(buf, "PNG")
+            del img
+            _cache[nombre] = buf.getvalue()
     return _cache[nombre]
 
 
@@ -335,10 +352,11 @@ def fondo_terreno(nombre):
     if nombre not in _cache_fondo:
         try:
             from PIL import Image, ImageFilter, ImageOps
-            carta = Image.open(io.BytesIO(png_de(nombre))).convert("RGB")
-            buf = io.BytesIO()
-            ImageOps.fit(carta, (1280, 720)).filter(ImageFilter.GaussianBlur(26)).save(buf, "JPEG", quality=80)
-            _cache_fondo[nombre] = buf.getvalue()
+            with _dibujo:
+                carta = Image.open(io.BytesIO(png_de(nombre))).convert("RGB")
+                buf = io.BytesIO()
+                ImageOps.fit(carta, (1280, 720)).filter(ImageFilter.GaussianBlur(26)).save(buf, "JPEG", quality=80)
+                _cache_fondo[nombre] = buf.getvalue()
         except Exception:
             return None
     return _cache_fondo[nombre], "image/jpeg"
@@ -484,7 +502,7 @@ def datos_cartas():
 def precalentar():
     """Dibuja las cartas del menú en segundo plano para que el primer visitante no espere."""
     menu = [d["nombre"] for d in cartas_abanico()]
-    for nombre in menu + [d["nombre"] for d in CARTAS if d["nombre"] not in menu]:
+    for nombre in menu + [d["nombre"] for d in CARTAS if d["nombre"] not in menu]:   # primero las del menú, después todas
         try:
             png_de(nombre)
         except Exception:
@@ -552,7 +570,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.cookie_nueva:
             self.send_header("Set-Cookie", f"sid={self.cookie_nueva}; Path=/; HttpOnly; SameSite=Lax")
         self.end_headers()
-        self.wfile.write(cuerpo)
+        try:
+            self.wfile.write(cuerpo)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # el navegador cerró la conexión antes de recibir todo (normal al cambiar de pantalla)
 
     def enviar_json(self, obj):
         self.enviar(json.dumps(obj, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
