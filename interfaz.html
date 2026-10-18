@@ -67,8 +67,8 @@
 .tc .nm i{font:600 1.1em 'Barlow',sans-serif;font-style:normal;letter-spacing:0.16em;text-transform:uppercase;color:rgb(var(--cc))}
 .tc .ps{flex:none;width:5.4em;height:5.4em;border-radius:50%;border:0.3em solid rgb(var(--cc));background:#0d0d14;display:flex;flex-direction:column;align-items:center;justify-content:center;font:700 2.2em/1 'Barlow Condensed','Arial Narrow',sans-serif}
 .tc .ps small{font:600 0.9em 'Barlow',sans-serif;letter-spacing:0.1em;color:#aab}
-.tc .art{position:relative;height:15em;flex:none;border-radius:1.2em;overflow:hidden;background:linear-gradient(160deg,rgba(var(--cc),.95),rgba(var(--cc),.3) 70%,#14141d)}
-.tc.nc .art{height:16em}
+.tc .art{position:relative;height:15em;flex:0 1 15em;min-height:6.5em;border-radius:1.2em;overflow:hidden;background:linear-gradient(160deg,rgba(var(--cc),.95),rgba(var(--cc),.3) 70%,#14141d)}
+.tc.nc .art{height:16em;flex-basis:16em}
 .tc .art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .tc .ini{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 11em 'Barlow Condensed','Arial Narrow',sans-serif;color:#fff;opacity:.25}
 .tc .art em{position:absolute;left:1em;bottom:0.9em;font:600 0.9em 'Barlow',sans-serif;font-style:normal;letter-spacing:0.15em;color:#fff;opacity:.6}
@@ -78,10 +78,11 @@
 .tc .pips u{width:1.1em;height:1.1em;border-radius:0.2em;transform:rotate(45deg);background:#ffd60a;box-shadow:0 0 0.6em #ffd60a99}
 .tc .hab b{flex:1;font:700 1.5em/1.1 'Barlow',sans-serif}
 .tc .hab strong{font:700 3.4em/1 'Barlow Condensed','Arial Narrow',sans-serif}
-.tc .ef{margin:0;flex:1;overflow:hidden;font:500 1.25em/1.35 'Barlow',sans-serif;color:#e6e6ee}
+.tc .ef{margin:0;flex:1 0 auto;overflow:hidden;font:500 1.25em/1.35 'Barlow',sans-serif;color:#e6e6ee}
 .tc .ft{display:flex;justify-content:space-between;padding-top:0.6em;border-top:0.1em solid #2c2c3d;font:600 1em 'Barlow',sans-serif;letter-spacing:.0.5em;text-transform:uppercase;color:#aeb0c0}
 .tc .fl{margin:0;font:italic 400 1em/1.3 'Barlow',sans-serif;color:#9a9ab0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 
+.tc .top,.tc .hab,.tc .ft,.tc .fl{flex:none}
 .tc.fa .in{gap:.6em}
 .tc.fa .art{position:absolute;inset:0;height:auto;border-radius:0;z-index:0}
 .tc.fa .in>:not(.art){position:relative;z-index:1}
@@ -243,6 +244,21 @@ function puedeMover(c, tipo) {
   if (c.categoria === "Terreno") return OPS.some(o => o.tipo === "terreno" && o.m[1] === n);
   return false;
 }
+
+// Si el texto del efecto no entra, achica la letra hasta que la carta se vea completa.
+function ajustarCartas(raiz = document) {
+  raiz.querySelectorAll(".tc").forEach(t => {
+    const ef = t.querySelector(".ef"), caja = t.querySelector(".in");
+    if (!ef || !caja) return;
+    ef.style.fontSize = "";
+    let tam = 1.25;
+    while (caja.scrollHeight > caja.clientHeight + 1 && tam > 0.7) {
+      tam = Math.round((tam - 0.05) * 100) / 100;
+      ef.style.fontSize = tam + "em";
+    }
+  });
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => ajustarCartas());
 
 function tc(c) {
   const comb = COMBATE.includes(c.categoria);
@@ -426,6 +442,7 @@ function render(d) {
 
   document.getElementById("tablero").classList.toggle("con-terreno", !!s.terreno);
   document.getElementById("tablero").innerHTML = campo(s);
+  ajustarCartas(document.getElementById("tablero"));
   dibujarMenu();
   const log = document.getElementById("log");
   log.textContent = d.log.join("\n");
@@ -544,6 +561,7 @@ document.addEventListener("mouseover", e => {
   dato.textContent = c.dataset.dato;
   dato.style.display = c.dataset.dato ? "block" : "none";
   zoom.style.display = "block";
+  ajustarCartas(zoom);
 });
 document.addEventListener("mouseout", e => { if (!e.relatedTarget) zoom.style.display = "none"; });
 
