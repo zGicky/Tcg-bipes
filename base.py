@@ -1,5 +1,7 @@
 import os
+import copy
 import random
+import types
 import sys
 
 from cartas import CARTAS
@@ -37,6 +39,7 @@ class Carta:
         self.escudo = 0
         self.turnos_activo = 0
         self.cargas = 0
+        self.veneno = 0
 
     @property
     def es_combate(self):
@@ -52,6 +55,8 @@ class Carta:
             s += " (Confundido)"
         if self.embobado:
             s += " (Embobado)"
+        if self.veneno:
+            s += f" (Gangrena {self.veneno})"
         if self.escudo:
             s += f" (Escudo -{self.escudo})"
         if self.nombre == "Tay":
@@ -78,6 +83,7 @@ class Jugador:
         self.energia_libre = 0
         self.apoyo_usado = False
         self.retirada_usada = False
+        self.ecuador_usado = False
 
     def en_juego(self):
         return ([self.activa] if self.activa else []) + self.banca
@@ -172,13 +178,18 @@ APOYOS = {"Bocchi": p_bocchi, "Denji": p_denji}
 
 def datos_carta(c):
     estados = [n for n, v in (("Confundido", c.confundido), ("Embobado", c.embobado)) if v]
+    if c.veneno:
+        estados.append(f"Gangrena {c.veneno}")
     if c.escudo:
         estados.append(f"Escudo -{c.escudo}")
     if c.nombre == "Tay":
         estados.append(f"Cargas {c.cargas}")
-    return dict(nombre=c.nombre, categoria=c.categoria, ps=c.ps, ps_max=c.ps_max,
-                energia=c.energia, costo=c.costo,
-                equipo=c.equipo.nombre if c.equipo else None, estados=estados)
+    return dict(nombre=c.nombre, categoria=c.categoria, rareza=c.rareza, ps=c.ps, ps_max=c.ps_max,
+                energia=c.energia, costo=c.costo, habilidad=c.habilidad, dano=c.dano,
+                equipo=c.equipo.nombre if c.equipo else None, estados=estados, full_art=c.full_art,
+                efecto=c.efecto, descripcion=c.descripcion, retirada=c.retirada,
+                debil=next((k for k, v in VENTAJA.items() if v == c.categoria), ""),
+                resiste=VENTAJA.get(c.categoria, ""))
 
 
 class Juego:
@@ -192,7 +203,7 @@ class Juego:
         self.terreno = None
         self.ganador = None
         self.terminado = False
-        self.ui = ui  # None = consola; con ui, las decisiones se toman en la ventana
+        self.ui = ui
 
     def rival_de(self, jug):
         return self.jugadores[1 - self.jugadores.index(jug)]
@@ -235,6 +246,8 @@ class Juego:
             b += 20
         if c.equipo and c.equipo.nombre == "Mezcladora de Forten":
             b += 10
+        if c.equipo and c.equipo.nombre == "Hacha oxidada":
+            b += 30 if c.nombre in ("Geeksito", "Chichotas") else 20
         return b
 
     def atk(self, c, d, base):
@@ -274,6 +287,9 @@ class Juego:
                 return
             print("  Confundido: sale cara, el ataque sigue")
         ATAQUES.get(c.nombre, a_basico)(self, yo, rv, c, d)
+        if c.equipo and c.equipo.nombre == "Hacha oxidada" and d.ps > 0 and d is rv.activa:
+            d.veneno = 3
+            print(f"  Gangrena: {d.nombre} queda envenenado (3 turnos)")
         if d.equipo and d.equipo.nombre == "El Chori":
             c.ps = max(0, c.ps - 20)
             print(f"  Capa de Grasa: {c.nombre} recibe 20 de daño (PS {c.ps}/{c.ps_max})")
@@ -361,6 +377,8 @@ class Juego:
                 acc.append(("apoyo", f"Jugar Partidario: {c.nombre}", lambda c=c: self.apoyo(yo, c)))
             elif c.categoria == "Terreno":
                 acc.append(("terreno", f"Jugar Terreno: {c.nombre}", lambda c=c: self.poner_terreno(yo, c)))
+        if self.terreno == "Ecuador" and not yo.ecuador_usado and self.opciones_ecuador(yo):
+            acc.append(("ecuador", "Ecuador: buscar en el mazo", lambda: self.buscar_ecuador(yo)))
         a = yo.activa
         if yo.banca and not yo.retirada_usada and not a.embobado and a.energia >= a.retirada:
             for b in yo.banca:
@@ -372,6 +390,27 @@ class Juego:
             acc.append(("ver", "Ver una carta en imagen", lambda: self.ver_carta(yo)))
         acc.append(("pasar", "Pasar el turno", None))
         return acc
+
+    def opciones_ecuador(self, yo):
+        ops = [(f"Un {cat}", lambda c, cat=cat: c.categoria == cat) for cat in ("Atacante", "Tanque", "Mago")]
+        if any(c.nombre == "Geeksito" for c in yo.en_juego()):
+            ops += [(n, lambda c, n=n: c.nombre == n) for n in ("Chichotas", "Manuelito")]
+        return [(t, f) for t, f in ops if any(f(c) for c in yo.mazo)]
+
+    def buscar_ecuador(self, yo):
+        ops = self.opciones_ecuador(yo)
+        if yo.cpu:
+            i = random.randrange(len(ops))
+        else:
+            i = self.elegir_idx([t for t, _ in ops], "Ecuador: ¿qué buscás en tu mazo?", yo)
+        carta = next(c for c in reversed(yo.mazo) if ops[i][1](c))
+        yo.mazo.remove(carta)
+        yo.mano.append(carta)
+        yo.ecuador_usado = True
+        print(f"  {yo.nombre} busca en Ecuador: {carta.nombre} a la mano")
+        for t in self.rival_de(yo).en_juego():
+            if t.nombre == "Tay":
+                t.cargas = min(4, t.cargas + 1)
 
     def ver_carta(self, yo):
         try:
@@ -385,7 +424,7 @@ class Juego:
 
     def elegir_accion(self, yo, acc):
         if yo.cpu:
-            for tipo in ("energia", "jugar", "equipar", "apoyo", "terreno", "atacar", "pasar"):
+            for tipo in ("energia", "jugar", "equipar", "apoyo", "terreno", "ecuador", "atacar", "pasar"):
                 for a in acc:
                     if a[0] == tipo:
                         return a
@@ -405,23 +444,100 @@ class Juego:
             for c in yo.mano:
                 print("  -", c.en_mano())
 
+    def guardar(self):
+        ui, self.ui = self.ui, None
+        try:
+            objs, vistos, cola = [], set(), [self]
+            atomicos = (str, int, float, bool, bytes, type(None), type, types.FunctionType,
+                        types.MethodType, types.BuiltinFunctionType, types.ModuleType)
+            while cola:
+                o = cola.pop()
+                if isinstance(o, atomicos) or id(o) in vistos:
+                    continue
+                vistos.add(id(o))
+                if isinstance(o, dict):
+                    cola.extend(o.values())
+                    objs.append(o)
+                elif isinstance(o, (list, set)):
+                    cola.extend(o)
+                    objs.append(o)
+                elif isinstance(o, tuple):
+                    cola.extend(o)
+                elif hasattr(o, "__dict__"):
+                    cola.extend(vars(o).values())
+                    objs.append(o)
+            memo = {}
+            copy.deepcopy(self, memo)
+            return [(o, memo[id(o)]) for o in objs if id(o) in memo]
+        finally:
+            self.ui = ui
+
+    def restaurar(self, estado):
+        inv = {id(c): o for o, c in estado}
+
+        def m(v):
+            if id(v) in inv:
+                return inv[id(v)]
+            if isinstance(v, tuple):
+                return tuple(m(x) for x in v)
+            return v
+
+        for o, c in estado:
+            if isinstance(o, list):
+                o[:] = [m(x) for x in c]
+            elif isinstance(o, dict):
+                o.clear()
+                o.update({k: m(x) for k, x in c.items()})
+            elif isinstance(o, set):
+                o.clear()
+                o.update(m(x) for x in c)
+            else:
+                ui = o.__dict__.get("ui")
+                o.__dict__.clear()
+                o.__dict__.update({k: m(x) for k, x in c.__dict__.items()})
+                if "ui" in c.__dict__:
+                    o.__dict__["ui"] = ui
+
     def turno(self, yo, rv):
-        yo.apoyo_usado = yo.retirada_usada = False
+        yo.apoyo_usado = yo.retirada_usada = yo.ecuador_usado = False
         yo.energia_libre = ENERGIA_POR_TURNO
         self.robar(yo)
         yo.activa.turnos_activo += 1
         self.mostrar(yo, rv)
+        pila = []
         while not self.ganador:
             self.actualizar(PAUSA_CPU if yo.cpu else 0)
-            tipo, _, fn = self.elegir_accion(yo, self.acciones(yo))
+            acc = self.acciones(yo)
+            if pila and not yo.cpu:
+                acc.append(("deshacer", "↩️ Deshacer la última jugada", None))
+            tipo, _, fn = self.elegir_accion(yo, acc)
+            if tipo == "deshacer":
+                self.restaurar(pila.pop())
+                print(f"↩️ {yo.nombre} deshizo su última jugada.")
+                continue
             if tipo == "pasar":
                 break
             if tipo == "atacar":
                 self.atacar(yo, rv)
                 break
+            antes = None if yo.cpu else self.guardar()
+            mazos = [len(j.mazo) for j in self.jugadores]
             fn()
+            if antes is not None:
+                if [len(j.mazo) for j in self.jugadores] != mazos:
+                    pila.clear()
+                else:
+                    pila.append(antes)
+                    del pila[:-20]
         for c in yo.en_juego():
             c.confundido = c.embobado = False
+        envenenados = [c for c in yo.en_juego() if c.veneno]
+        for c in envenenados:
+            c.ps = max(0, c.ps - 10)
+            c.veneno -= 1
+            print(f"  Gangrena: {c.nombre} pierde 10 PS (PS {c.ps}/{c.ps_max})")
+        if envenenados:
+            self.resolver_kos()
         for c in rv.en_juego():
             c.escudo = 0
         self.actualizar(PAUSA_CPU if yo.cpu else 0)
@@ -442,11 +558,23 @@ class Juego:
             jug.activa = self.elegir(jug, opciones, f"{jug.nombre}: elegí tu carta activa")
             jug.mano.remove(jug.activa)
 
+    def tirar_moneda(self):
+        llama = random.choice(self.jugadores)
+        if llama.cpu:
+            canto = random.choice(["Cara", "Cruz"])
+        else:
+            self.actualizar()
+            canto = self.elegir(llama, ["Cara", "Cruz"], f"{llama.nombre}: 🪙 cantá cara o cruz para ver quién empieza")
+        salio = random.choice(["Cara", "Cruz"])
+        gana = llama if canto == salio else next(j for j in self.jugadores if j is not llama)
+        print(f"\n🪙 {llama.nombre} canta {canto} y la moneda cae en {salio}: empieza {gana.nombre}.")
+        return self.jugadores.index(gana)
+
     def jugar(self):
         self.preparando = True
         self.preparar()
         self.preparando = False
-        i = random.randint(0, 1)
+        i = self.tirar_moneda()
         for _ in range(MAX_TURNOS):
             if self.ganador:
                 break

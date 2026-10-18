@@ -4,26 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TCG base</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Barlow+Condensed:wght@700&display=swap">
 <style>
   :root {
     --fondo: #16161e; --panel: #1f1f2b; --texto: #eeeeee; --acento: #f5b301;
-    --w: clamp(84px, 11vh, 130px);    /* ancho de cartas de banca y mano */
-    --wa: clamp(116px, 17vh, 180px);  /* ancho de las cartas activas */
-    --lateral: 340px;
+    --w: clamp(80px, 10.8vh, 150px);
+    --wa: clamp(140px, 24.5vh, 270px);
+    --lateral: 400px;
   }
+  @media (max-width: 1000px) { :root { --lateral: 320px; } }
   * { box-sizing: border-box; }
   body { margin: 0; height: 100vh; display: flex; background: var(--fondo); color: var(--texto);
          font: 15px system-ui, sans-serif; }
   #tablero { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; min-width: 0; overflow-y: auto; }
-  #lateral { width: var(--lateral); background: var(--panel); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-  #preg { display: flex; flex-direction: column; gap: 6px; max-height: 55%; overflow-y: auto; }
-  #preg h3 { margin: 0 0 4px; font-size: 16px; }
-  .op { background: #2d2d40; color: var(--texto); border: 1px solid #444; border-radius: 6px;
-        padding: 8px 10px; text-align: left; cursor: pointer; font: inherit; }
-  .op:hover { background: #3a3a55; border-color: var(--acento); }
-  .banner { background: var(--acento); color: #111; font-weight: 700; padding: 8px; border-radius: 6px; text-align: center; }
+  #lateral { width: var(--lateral); background: var(--panel); padding: 12px 12px 50px; display: flex;
+             flex-direction: column; gap: 10px; }
   #log { flex: 1; overflow-y: auto; font-size: 12.5px; color: #bbbbbb; white-space: pre-wrap;
          border-top: 1px solid #333; padding-top: 8px; }
+
   .info { color: #bbbbbb; font-size: 13px; margin-bottom: 2px; }
   .info b { color: var(--texto); }
   .fila { display: flex; gap: 26px; align-items: flex-start; }
@@ -31,116 +29,518 @@
   .cartas { display: flex; gap: 8px; }
   .carta { position: relative; width: var(--w); cursor: zoom-in; }
   .activa .carta { width: var(--wa); }
-  .carta img { width: 100%; display: block; border-radius: 8px; box-shadow: 0 2px 6px #000a; background: #2a2a38; }
-  .carta:hover img { outline: 2px solid var(--acento); }
   .hp { height: 5px; background: #444444; border-radius: 3px; margin-top: 3px; overflow: hidden; }
   .hp span { display: block; height: 100%; background: #4caf50; }
   .dato { font-size: 11px; text-align: center; color: #dddddd; }
   .tag { font-size: 10px; background: #3a3a4d; border-radius: 3px; padding: 1px 4px; margin: 2px 2px 0 0; display: inline-block; }
-  .vacio { width: var(--w); height: calc(var(--w) * 1.4); border: 2px dashed #333333; border-radius: 8px; }
-  .activa .vacio { width: var(--wa); height: calc(var(--wa) * 1.4); }
+  .vacio { width: var(--w); height: calc(var(--w) * 1.5); border: 2px dashed #333333; border-radius: 8px; }
+  .activa .vacio { width: var(--wa); height: calc(var(--wa) * 1.5); }
   .centro { text-align: center; color: #aaaaaa; font-size: 13px; }
 
-  /* Vista ampliada: fija en pantalla, del lado opuesto a la carta señalada, así nunca se corta */
+  .carta[data-cat="Atacante"]  { --cc: 239, 68, 68; }
+  .carta[data-cat="Tanque"]    { --cc: 59, 130, 246; }
+  .carta[data-cat="Mago"]      { --cc: 168, 85, 247; }
+  .carta[data-cat="Partidario"]{ --cc: 34, 197, 94; }
+  .carta[data-cat="Terreno"]   { --cc: 209, 154, 43; }
+  .carta[data-cat="Equipable"] { --cc: 245, 158, 11; }
+  .carta { container-type: inline-size; --cc: 200, 200, 210; transition: transform .18s ease, filter .18s ease; }
+  .carta.enjuego { margin-bottom: 24px; }
+  .carta:hover { transform: translateY(-7px) scale(1.05); z-index: 6; filter: brightness(1.08) saturate(1.1); }
+  @property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+  @keyframes brillo { to { background-position: 300% 0; } }
+  @keyframes giro { to { --ang: 360deg; } }
+  .marco { position: relative; border-radius: 5.7% / 4.1%; }
+.tc{--rr:190,194,202;--bw:0.4em;--glow:0em;--anillo:linear-gradient(135deg,#e5e7eb,#8b9099,#d1d5db);position:relative;width:100%;aspect-ratio:300/450;border-radius:2em;font-size:3.3333cqw;box-shadow:0 0 var(--glow) rgba(var(--rr),.7),0 1.8em 3em #000a}
+.tc[data-rareza="Raro"]{--rr:34,197,94;--bw:0.5em;--glow:1.4em;--anillo:linear-gradient(135deg,#86efac,#16a34a,#4ade80)}
+.tc[data-rareza="Épico"]{--rr:168,85,247;--bw:0.6em;--glow:2em;--anillo:linear-gradient(135deg,#e9d5ff,#9333ea,#c084fc)}
+.tc[data-rareza="Legendario"]{--rr:245,179,1;--bw:0.7em;--glow:2.6em;--anillo:linear-gradient(120deg,#fff3b0,#f5b301,#a86f00,#ffe27a,#f5b301,#fff3b0)}
+.tc[data-rareza="Mítico"]{--rr:225,29,154;--bw:0.7em;--glow:3.2em;--anillo:conic-gradient(from var(--ang),#ff3cac,#ffb703,#7dffb0,#4cc9f0,#c77dff,#ff3cac)}
+.tc[data-rareza=""]{--rr:150,150,165;--bw:0.3em;--anillo:#8b8fa0}
+.tc[data-cat="Atacante"]{--cc:239,68,68}.tc[data-cat="Tanque"]{--cc:59,130,246}.tc[data-cat="Mago"]{--cc:168,85,247}
+.tc[data-cat="Partidario"]{--cc:34,197,94}.tc[data-cat="Terreno"]{--cc:209,154,43}.tc[data-cat="Equipable"]{--cc:245,158,11}
+.tc::before{content:"";position:absolute;inset:calc(var(--bw)*-1);padding:var(--bw);border-radius:calc(2em + var(--bw));background:var(--anillo);background-size:300% 300%;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.tc[data-rareza="Legendario"]::before{animation:brillo 3.2s linear infinite}
+.tc[data-rareza="Mítico"]::before{animation:giro 4s linear infinite;background-size:auto}
+.tc .in{position:absolute;inset:0;border-radius:2em;overflow:hidden;display:flex;flex-direction:column;gap:0.8em;padding:1.2em;box-sizing:border-box;background:linear-gradient(180deg,rgba(var(--cc),.24),transparent 36%),#14141d;color:#f2f2f7;font-family:'Barlow','Segoe UI',sans-serif}
+.tc .top{display:flex;justify-content:space-between;align-items:center;min-height:5.4em}
+.tc .nm b{display:block;font:700 2.7em/1 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.0.4em;text-transform:uppercase}
+.tc .nm i{font:600 1.1em 'Barlow',sans-serif;font-style:normal;letter-spacing:0.16em;text-transform:uppercase;color:rgb(var(--cc))}
+.tc .ps{flex:none;width:5.4em;height:5.4em;border-radius:50%;border:0.3em solid rgb(var(--cc));background:#0d0d14;display:flex;flex-direction:column;align-items:center;justify-content:center;font:700 2.2em/1 'Barlow Condensed','Arial Narrow',sans-serif}
+.tc .ps small{font:600 0.9em 'Barlow',sans-serif;letter-spacing:0.1em;color:#aab}
+.tc .art{position:relative;height:15em;flex:none;border-radius:1.2em;overflow:hidden;background:linear-gradient(160deg,rgba(var(--cc),.95),rgba(var(--cc),.3) 70%,#14141d)}
+.tc.nc .art{height:16em}
+.tc .art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.tc .ini{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 11em 'Barlow Condensed','Arial Narrow',sans-serif;color:#fff;opacity:.25}
+.tc .art em{position:absolute;left:1em;bottom:0.9em;font:600 0.9em 'Barlow',sans-serif;font-style:normal;letter-spacing:0.15em;color:#fff;opacity:.6}
+.tc .gem{position:absolute;right:0.8em;bottom:0.8em;padding:0.3em 1em;border-radius:9.9em;background:#0d0d14;border:0.2em solid rgb(var(--rr));font:700 1.1em 'Barlow',sans-serif;letter-spacing:0.12em;text-transform:uppercase;color:#fff}
+.tc .hab{display:flex;align-items:center;gap:1em;padding:0.6em 1.2em;border-radius:1em;background:#0d0d14;min-height:3.2em}
+.tc .pips{display:flex;gap:0.7em}
+.tc .pips u{width:1.1em;height:1.1em;border-radius:0.2em;transform:rotate(45deg);background:#ffd60a;box-shadow:0 0 0.6em #ffd60a99}
+.tc .hab b{flex:1;font:700 1.5em/1.1 'Barlow',sans-serif}
+.tc .hab strong{font:700 3.4em/1 'Barlow Condensed','Arial Narrow',sans-serif}
+.tc .ef{margin:0;flex:1;overflow:hidden;font:500 1.25em/1.35 'Barlow',sans-serif;color:#e6e6ee}
+.tc .ft{display:flex;justify-content:space-between;padding-top:0.6em;border-top:0.1em solid #2c2c3d;font:600 1em 'Barlow',sans-serif;letter-spacing:.0.5em;text-transform:uppercase;color:#aeb0c0}
+.tc .fl{margin:0;font:italic 400 1em/1.3 'Barlow',sans-serif;color:#9a9ab0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+.tc.fa .in{gap:.6em}
+.tc.fa .art{position:absolute;inset:0;height:auto;border-radius:0;z-index:0}
+.tc.fa .in>:not(.art){position:relative;z-index:1}
+.tc.fa .ini{font-size:22em}
+.tc.fa .art em{bottom:auto;top:9.6em;left:1.4em}
+.tc.fa .gem{bottom:auto;top:8.4em;right:1.4em}
+.tc.fa .top{margin-bottom:auto;padding:.6em 1em;border-radius:1.2em}
+.tc.fa .top,.tc.fa .hab,.tc.fa .ef,.tc.fa .ft,.tc.fa .fl{background:rgba(13,13,20,.68);-webkit-backdrop-filter:blur(.4em);backdrop-filter:blur(.4em)}
+.tc.fa .ef{flex:none;padding:.8em 1em;border-radius:1em}
+.tc.fa .ft{border-top:0;padding:.5em 1em;border-radius:1em}
+.tc.fa .fl{padding:.5em 1em;border-radius:1em;color:#d4d4e2;-webkit-line-clamp:2}
+.activa .tc{animation:pulso 2.6s ease-in-out infinite}
+@keyframes pulso{50%{box-shadow:0 0 calc(var(--glow) + 2.6em) rgba(var(--rr),.95),0 1em 2.2em #000d}}
+  .shine { position: absolute; inset: 0; border-radius: 5.7% / 4.1%; pointer-events: none; mix-blend-mode: screen; opacity: .9;
+           background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, .38) 46%, rgba(255, 220, 160, .22) 52%, transparent 66%);
+           background-size: 260% 100%; background-position: 130% 0; transition: background-position .7s ease; }
+  .carta:hover .shine { background-position: -30% 0; }
+  .activa .marco { animation: flota 4.2s ease-in-out infinite; }
+  @keyframes flota { 50% { transform: translateY(-6px); } }
+  .mitad.yo .activa .marco { outline: 3px dashed #3b82f6; outline-offset: 16px; }
+  .mitad.rival .activa .marco { outline: 3px dashed #ef4444; outline-offset: 16px; }
+  .carta.arrastrable .marco { outline: 2px solid rgba(255, 255, 255, .85); outline-offset: 12px; }
+  .cinta { position: absolute; left: 5%; right: 5%; bottom: -21px; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 3px; pointer-events: none; }
+  .barra { position: relative; width: 100%; height: 16px; background: #000d; border: 2px solid #fff; border-radius: 9px; overflow: hidden;
+           box-shadow: 0 2px 6px #000b; }
+  .barra span { position: absolute; inset: 0 auto 0 0; transition: width .4s; }
+  .barra b { position: absolute; inset: 0; text-align: center; font: 800 11px/12px system-ui; color: #fff; text-shadow: 0 1px 2px #000; }
+  .pipsc { display: flex; gap: 4px; }
+  .pipsc i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; background: #000a; box-shadow: 0 1px 3px #000a; }
+  .pipsc i.on { background: radial-gradient(circle at 35% 30%, #fff6a8, #ffd60a 60%, #d99a00); border-color: #222; box-shadow: 0 0 8px #ffd60acc; }
+  .tags { position: absolute; left: 5%; top: 27%; z-index: 3; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; pointer-events: none; }
+  .tags .tag { margin: 0; font-weight: 700; background: #000c; border: 1px solid rgba(var(--cc), .9); color: #fff; padding: 2px 6px; border-radius: 6px; font-size: 10.5px; }
+
+  .campo { flex: none; margin-block: auto; display: grid; justify-content: center; row-gap: 8px;
+           grid-template-columns: auto var(--wa) minmax(80px, auto) var(--wa); column-gap: clamp(14px, 2.5vw, 50px); }
+  .campo .info { white-space: nowrap; text-align: center; }
+  .lado { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  .lado.rival { grid-column: 2 / 5; grid-row: 1; }
+  .mitad.yo { grid-column: 2; grid-row: 2; }
+  .orb-zona { grid-column: 1; grid-row: 2; align-self: center; }
+  .vs { grid-column: 3; grid-row: 2; }
+  .mitad.rival { grid-column: 4; grid-row: 2; }
+  .lado.yo { grid-column: 2 / 5; grid-row: 3; }
+  .campo .mano { grid-column: 2 / 5; grid-row: 4; }
+  .mitad .zona { width: 100%; }
+  .zona .cap { text-align: center; }
+  .lado .cartas, .mano .cartas { justify-content: center; }
+  .mano { display: flex; justify-content: center; flex: none; }
+  .mano .carta { width: clamp(64px, 8.5vh, 112px); }
+  .mano .cartas { flex-wrap: wrap; }
+  .mitad .activa .cartas { justify-content: center; }
+
+  @media (min-width: 1001px) { #tablero.con-terreno { padding-right: 240px; } }
+  .vs { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .vs .espadas { font-size: 34px; opacity: .85; filter: drop-shadow(0 2px 4px #000); }
+  .vs .terr { font-size: 12px; color: #bbb; text-shadow: 0 1px 3px #000; text-align: center; }
+  .vs .terr b { display: block; color: #fff; font-size: 14px; }
+  .vs { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 70px; }
+  .vs .espadas { font-size: 34px; opacity: .85; filter: drop-shadow(0 2px 4px #000); }
+  .vs .terr { font-size: 12px; color: #bbb; text-shadow: 0 1px 3px #000; }
+  .vs .terr b { display: block; color: #fff; font-size: 14px; }
+
+  #menu { display: flex; flex-direction: column; gap: 8px; }
+  .pregunta { font-weight: 700; text-align: center; padding: 7px 10px; background: #00000055; border-radius: 10px; }
+  .pregunta small { display: block; font-weight: 500; font-size: 12px; color: #aab; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 118px 78px; gap: 9px;
+          grid-template-areas: "atacar atacar" "pasar rendir"; }
+  .entra .cmd { animation: entra .28s ease-out backwards; }
+  .entra .g-pasar { animation-delay: .05s; } .entra .g-rendir { animation-delay: .1s; }
+  @keyframes entra { from { opacity: 0; transform: translateY(14px) scale(.94); } }
+
+  .cmd { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;
+         text-align: left; color: #fff; cursor: pointer; padding: 10px 14px 9px;
+         border: 3px solid rgba(255, 255, 255, .92); border-radius: 22px 6px 22px 6px;
+         box-shadow: 0 4px 0 rgba(0, 0, 0, .4), inset 0 0 22px rgba(255, 255, 255, .28);
+         text-shadow: 0 2px 0 rgba(0, 0, 0, .35); transition: transform .08s, filter .15s; font: inherit; }
+  .cmd:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); filter: brightness(1.12); }
+  .cmd:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, .4), inset 0 0 22px rgba(255, 255, 255, .28); }
+  .cmd:disabled { filter: grayscale(.85) brightness(.55); cursor: not-allowed; }
+  .cmd .tit { font-size: 21px; font-weight: 900; letter-spacing: .6px; position: relative; z-index: 1; }
+  .cmd .sub { font-size: 12.5px; font-weight: 600; opacity: .95; position: relative; z-index: 1; }
+  .cmd .marca { position: absolute; right: -4px; bottom: -10px; width: 74px; height: 74px; opacity: .3; transform: rotate(-12deg); }
+  .g-atacar { grid-area: atacar; } .g-pasar { grid-area: pasar; } .g-rendir { grid-area: rendir; }
+  .g-atacar .tit { font-size: 34px; } .g-atacar .marca { width: 128px; height: 128px; right: 4px; bottom: -14px; opacity: .33; }
+  .g-atacar .hab { font-size: 17px; font-weight: 800; position: relative; z-index: 1; }
+  .c-atacar { background: linear-gradient(135deg, #ff8a24 0%, #e8341c 58%, #a9150c 100%); }
+  .c-pasar { background: linear-gradient(135deg, #66d4ff 0%, #2d8fe0 58%, #1a5aa3 100%); }
+  .c-rendir { background: linear-gradient(135deg, #ff6b6b 0%, #d62828 58%, #7a0c0c 100%); }
+  .cmd.chico { min-height: 48px; margin-top: 8px; }
+  .badge { position: absolute; top: 7px; right: 10px; z-index: 2; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px;
+           background: #fff; color: #222; font: 800 13px/24px system-ui; text-align: center; text-shadow: none; }
+  .pips { position: relative; z-index: 1; display: flex; gap: 4px; align-items: center; }
+  .pip { width: 13px; height: 13px; border-radius: 50%; border: 2px solid #fff; background: #0003; }
+  .pip.on { background: #ffd60a; border-color: #222; }
+
+  .sub-cab { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px 5px 14px 5px;
+             border: 3px solid #fffd; color: #fff; text-shadow: 0 2px 0 #0005; font-weight: 900; font-size: 18px; letter-spacing: .5px; }
+  .volver { font: 700 13px system-ui; color: #222; background: #fff; border: 0; border-radius: 10px; padding: 5px 10px; cursor: pointer; }
+  .volver:hover { background: #ffe9a8; }
+  .lista { display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow-y: auto; }
+  .fila-op { display: flex; gap: 10px; align-items: center; text-align: left; color: var(--texto); background: #2d2d40;
+             border: 1px solid #44445a; border-radius: 10px; padding: 6px 9px; cursor: pointer; font: inherit; }
+  .fila-op:hover { background: #3a3a55; border-color: var(--acento); }
+  .fila-op .mini { width: 40px; border-radius: 5px; box-shadow: 0 1px 4px #000a; flex: none; }
+  .fila-op .t { font-weight: 700; }
+  .fila-op .s { font-size: 12px; color: #aab; }
+  .espera { text-align: center; color: #bbb; padding: 18px 8px; background: #00000040; border-radius: 12px; }
+  .espera b { display: block; color: #eee; font-size: 16px; margin-bottom: 4px; }
+  .banner { background: var(--acento); color: #111; font-weight: 800; padding: 10px; border-radius: 10px; text-align: center; font-size: 18px; }
+
+  #tablero { user-select: none; -webkit-user-select: none; }
+  .arrastrable { cursor: grab; touch-action: none; }
+  body.arrastrando, body.arrastrando * { cursor: grabbing !important; }
+  .origen { opacity: .35; }
+  .valido { outline: 2px dashed var(--acento); outline-offset: 4px; border-radius: 10px; }
+  .valido.sobre { outline-style: solid; background: #f5b30022; }
+  .jugador.yo.valido, .centro.valido { outline-offset: -2px; }
+  #ghost { position: fixed; z-index: 200; pointer-events: none; transform: translate(-50%, -55%) rotate(-4deg);
+           filter: drop-shadow(0 10px 14px #000a); }
+  #ghost { container-type: inline-size; }
+  #ghost img { display: block; width: 100%; border-radius: 8px; }
+  .orb { position: relative; width: 74px; height: 74px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+         background: radial-gradient(circle at 35% 30%, #fff3a0, #f5a300 60%, #bf7000); border: 3px solid #fff;
+         box-shadow: 0 4px 0 #0006, inset 0 0 14px #fff8; color: #fff; opacity: .4; filter: grayscale(.6); }
+  .orb svg { width: 36px; height: 36px; fill: #fff; filter: drop-shadow(0 2px 0 #0005); }
+  .orb b { position: absolute; right: -6px; bottom: -6px; min-width: 26px; height: 26px; border-radius: 13px; background: #222;
+           border: 2px solid #fff; font: 800 14px/22px system-ui; text-align: center; color: #fff; }
+  .orb.arrastrable { opacity: 1; filter: none; animation: latido 1.4s ease-in-out infinite; }
+  @keyframes latido { 50% { transform: scale(1.08); box-shadow: 0 4px 0 #0006, 0 0 22px #ffd60acc, inset 0 0 14px #fff8; } }
+  #ghost.orbe { transform: translate(-50%, -50%); }
+
   #zoom { position: fixed; top: 50%; transform: translateY(-50%); width: min(400px, 54vh);
           display: none; z-index: 50; pointer-events: none; }
   #zoom.izq { left: 14px; }
   #zoom.der { right: calc(var(--lateral) + 40px); }
-  #zoom img { width: 100%; display: block; border-radius: 14px; box-shadow: 0 8px 30px #000d; }
-  #zoom div { margin-top: 6px; text-align: center; font-size: 14px; background: #000b; border-radius: 6px; padding: 4px 8px; }
+  #zoom .zc { container-type: inline-size; margin: 0 14px; }
+  #zoom .zd { margin-top: 6px; text-align: center; font-size: 14px; background: #000b; border-radius: 6px; padding: 4px 8px; }
 </style>
 </head>
 <body>
 <div id="tablero">Cargando...</div>
 <div id="lateral">
-  <div id="preg"></div>
+  <div id="menu"></div>
   <div id="log"></div>
 </div>
-<div id="zoom"><img alt=""><div></div></div>
+<div id="zoom"><div class="zc"></div><div class="zd"></div></div>
 <script>
 const COMBATE = ["Atacante", "Tanque", "Mago"];
-let ultimo = "";
-
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-function carta(c) {
+const hayMenu = () => !!PREG && PREG.titulo === TITULO_MENU;
+function puedeMover(c, tipo) {
+  if (!hayMenu()) return false;
+  const n = c.nombre;
+  if (tipo === "banca") return OPS.some(o => o.tipo === "retirar" && o.m[2] === n);
+  if (COMBATE.includes(c.categoria)) return OPS.some(o => o.tipo === "jugar" && o.m[1] === n);
+  if (c.categoria === "Equipable") return OPS.some(o => o.tipo === "equipar" && o.m[1] === n);
+  if (c.categoria === "Partidario") return OPS.some(o => o.tipo === "apoyo" && o.m[1] === n);
+  if (c.categoria === "Terreno") return OPS.some(o => o.tipo === "terreno" && o.m[1] === n);
+  return false;
+}
+
+function tc(c) {
+  const comb = COMBATE.includes(c.categoria);
+  const v = /daño más|más de daño|suma/.test((c.efecto || "").toLowerCase());
+  return `<div class="tc${comb ? "" : " nc"}${c.full_art ? " fa" : ""}" data-rareza="${esc(c.rareza || "")}" data-cat="${esc(c.categoria)}"><div class="in">` +
+    `<div class="top"><div class="nm"><b>${esc(c.nombre)}</b><i>${esc(c.categoria)}</i></div>${comb ? `<div class="ps"><small>PS</small>${c.ps_max}</div>` : ""}</div>` +
+    `<div class="art"><span class="ini">${esc(c.nombre[0])}</span><em>ARTE AQUÍ</em><img src="/arte/${encodeURIComponent(c.nombre)}.png" alt="" onerror="this.remove()">${c.rareza ? `<span class="gem">${esc(c.rareza)}</span>` : ""}</div>` +
+    `<div class="hab">${comb ? `<span class="pips">${"<u></u>".repeat(c.costo)}</span>` : ""}<b>${esc(c.habilidad)}</b>${comb ? `<strong>${c.dano}${v ? "+" : ""}</strong>` : ""}</div>` +
+    `<p class="ef">${esc(c.efecto || "")}</p>` +
+    (comb ? `<div class="ft"><span>Débil. ${esc(c.debil)} ×2</span><span>Resiste ${esc(c.resiste)} ×0,5</span><span>Ret. ${c.retirada}</span></div>` : "") +
+    `<p class="fl">${esc(c.descripcion || "")}</p></div></div>`;
+}
+
+function carta(c, o = {}) {
   const comb = COMBATE.includes(c.categoria);
   const extra = [];
   if (comb) extra.push(`PS ${c.ps}/${c.ps_max} · Energía ${c.energia}/${c.costo}`);
   if (c.equipo) extra.push("Equipo: " + c.equipo);
   c.estados.forEach(e => extra.push(e));
   const src = `/carta/${encodeURIComponent(c.nombre)}.png`;
-  let h = `<div class="carta" data-img="${src}" data-dato="${esc(extra.join(" · "))}">` +
-          `<img src="${src}" alt="${esc(c.nombre)}">`;
-  if (comb) {
-    h += `<div class="hp"><span style="width:${Math.max(0, 100 * c.ps / c.ps_max)}%"></span></div>`;
-    h += `<div class="dato">PS ${c.ps}/${c.ps_max} · Energía ${c.energia}/${c.costo}</div>`;
+  const mover = o.drag && puedeMover(c, o.drag);
+  const enjuego = o.enjuego && comb;
+  let h = `<div class="carta${mover ? " arrastrable" : ""}${enjuego ? " enjuego" : ""}" data-img="${src}" data-dato="${esc(extra.join(" · "))}"` +
+          ` data-nombre="${esc(c.nombre)}" data-cat="${esc(c.categoria)}" data-rareza="${esc(c.rareza || "")}"` +
+          (mover ? ` data-drag="${o.drag}"` : "") + (o.drop ? ` data-drop="carta"` : "") + `>` +
+          `<div class="marco">${tc(c)}<span class="shine"></span>`;
+  const tags = (c.equipo ? [c.equipo] : []).concat(c.estados);
+  if (tags.length && o.enjuego) h += `<div class="tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>`;
+  if (enjuego) {
+    const pct = Math.max(0, Math.min(100, 100 * c.ps / c.ps_max));
+    const col = pct > 50 ? "linear-gradient(#7be07f,#2e9e3a)" : pct > 25 ? "linear-gradient(#ffd75e,#e0a000)" : "linear-gradient(#ff8080,#d62828)";
+    h += `<div class="cinta"><div class="barra"><span style="width:${pct}%;background:${col}"></span><b>${c.ps}/${c.ps_max}</b></div>` +
+         `<div class="pipsc">${Array.from({ length: c.costo }, (_, i) => `<i class="${i < c.energia ? "on" : ""}"></i>`).join("")}</div></div>`;
   }
-  if (c.equipo) h += `<span class="tag">${esc(c.equipo)}</span>`;
-  c.estados.forEach(e => { h += `<span class="tag">${esc(e)}</span>`; });
-  return h + "</div>";
+  return h + `</div></div>`;
 }
 
-const zona = (cap, cartas, clase = "") =>
-  `<div class="zona ${clase}"><div class="cap">${cap}</div><div class="cartas">` +
-  (cartas.length ? cartas.map(carta).join("") : '<div class="vacio"></div>') + "</div></div>";
+const zona = (cap, cartas, clase = "", o = {}) =>
+  `<div class="zona ${clase}"${o.zona ? ` data-drop="${o.zona}"` : ""}><div class="cap">${cap}</div><div class="cartas">` +
+  (cartas.length ? cartas.map(c => carta(c, o)).join("") : '<div class="vacio"></div>') + "</div></div>";
 
-function jugador(j, clase, meta) {
+const ICONO_ENERGIA = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M38 2 12 36h15l-5 26 30-38H36z"/></svg>';
+function orbe(j) {
+  const puede = hayMenu() && OPS.some(o => o.tipo === "energia");
+  return `<div class="zona orb-zona"><div class="cap">Energía</div><div class="orb${puede ? " arrastrable" : ""}"` +
+    `${puede ? ' data-drag="energia"' : ""}>${ICONO_ENERGIA}<b>${j.energia_libre}</b></div></div>`;
+}
+
+const infoJ = (j, meta) => {
   const libre = j.energia_libre ? ` · Energía por asignar: <b>${j.energia_libre}</b>` : "";
-  return `<div class="jugador ${clase}"><div class="info"><b>${esc(j.nombre)}</b> · Puntos ${j.puntos}/${meta}` +
-    ` · Mazo ${j.mazo} · Mano ${j.mano_n}${libre}</div>` +
-    `<div class="fila">${zona("Activa", j.activa ? [j.activa] : [], "activa")}${zona("Banca", j.banca)}</div></div>`;
+  return `<div class="info"><b>${esc(j.nombre)}</b> · Puntos ${j.puntos}/${meta} · Mazo ${j.mazo} · Mano ${j.mano_n}${libre}</div>`;
+};
+const activaZ = (j, propio) => zona("Activa", j.activa ? [j.activa] : [], "activa", propio ? { zona: "activa", drop: true, enjuego: true } : { enjuego: true });
+const bancaZ = (j, propio) => zona("Banca", j.banca, "", propio ? { zona: "banca", drop: true, drag: "banca", enjuego: true } : { enjuego: true });
+
+function campo(s) {
+  const yo = s.yo, ri = s.rival, meta = s.puntos_meta;
+  return `<div class="campo">` +
+    `<div class="lado rival">${infoJ(ri, meta)}${bancaZ(ri, false)}</div>` +
+    `${orbe(yo)}<div class="mitad yo" data-drop="mesa">${activaZ(yo, true)}</div>` +
+    `<div class="vs" data-drop="mesa"><span class="espadas">⚔️</span>` +
+      `<span class="terr">Terreno<b>${s.terreno ? esc(s.terreno) : "—"}</b></span></div>` +
+    `<div class="mitad rival">${activaZ(ri, false)}</div>` +
+    `<div class="lado yo" data-drop="mesa">${infoJ(yo, meta)}${bancaZ(yo, true)}</div>` +
+    `<div class="mano" data-drop="mano">${zona("Tu mano", yo.mano, "", { drag: "mano" })}</div>` +
+  `</div>`;
 }
+
+const TITULO_MENU = "¿Qué hacés?";
+const GRUPOS = {
+  atacar:  { nombre: "ATACAR",  tipos: ["atacar"] },
+  ecuador: { nombre: "BUSCAR", tipos: ["ecuador"] },
+  pasar:   { nombre: "PASAR",   tipos: ["pasar"] },
+};
+const PATRONES = [
+  ["atacar",  /^Atacar: (.+)$/],
+  ["energia", /^Asignar energía a (.+) \((\d+)\/(\d+)\)$/],
+  ["jugar",   /^Bajar a la banca: (.+)$/],
+  ["retirar", /^Retirar a (.+?) y poner a (.+) \(cuesta (\d+) energía\)$/],
+  ["equipar", /^Equipar (.+?) a (.+)$/],
+  ["apoyo",   /^Jugar Partidario: (.+)$/],
+  ["terreno", /^Jugar Terreno: (.+)$/],
+  ["ecuador", /^Ecuador: buscar en el mazo$/],
+  ["pasar",   /^Pasar el turno$/],
+];
+const ICONOS = {
+  atacar:  '<path d="M34 3c3 13-9 19-9 31 0 5 2 8 5 10-8-2-14-9-13-19-7 7-11 15-11 23 0 13 11 23 25 23s25-10 25-23C56 31 41 25 34 3z"/>',
+  pasar:   '<path d="M8 8l24 24L8 56M32 8l24 24-24 24" fill="none" stroke="currentColor" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>',
+  ecuador: '<path d="M8 10h14v44H8zM26 10h14v44H26zM44 14l12 3-10 38-12-3z"/>',
+  rendir:  '<path d="M12 4v56h6V38h34L42 21 52 4z"/>',
+};
+const icono = g => `<svg class="marca" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true">${ICONOS[g]}</svg>`;
+const pips = (tiene, costo) => `<span class="pips">${Array.from({ length: costo }, (_, i) =>
+  `<span class="pip${i < tiene ? " on" : ""}"></span>`).join("")}</span>`;
+
+let D = null, PREG = null, OPS = [], IDPREG = null, ANIM = false;
+
+function clasificar(label) {
+  for (const [tipo, re] of PATRONES) { const m = label.match(re); if (m) return { tipo, m }; }
+  return { tipo: label.startsWith("↩") ? "deshacer" : "otro", m: null };
+}
+const opsDe = g => OPS.filter(o => GRUPOS[g].tipos.includes(o.tipo));
+
+function miniatura(nombre) {
+  return nombre ? `<img class="mini" src="/carta/${encodeURIComponent(nombre)}.png" alt="" onerror="this.style.visibility='hidden'">` : "";
+}
+
+function botonGrupo(g) {
+  const ops = opsDe(g), a = D.snap.yo.activa, n = ops.length;
+  if (g === "atacar") {
+    const hab = n ? ops[0].m[1] : (a && a.habilidad) || "";
+    const dano = a && a.dano !== undefined ? ` · ${a.dano}` : "";
+    const faltan = !n && a ? `Falta energía (${a.energia}/${a.costo})` : "";
+    return `<button class="cmd c-atacar g-atacar" ${n ? "" : "disabled"} onclick="clickGrupo('atacar')">${icono(g)}` +
+      `<span class="tit">ATACAR</span><span class="hab">${esc(n ? hab + dano : faltan)}</span>` +
+      (a ? pips(a.energia, a.costo) : "") + `</button>`;
+  }
+  if (g === "ecuador") return n ? `<button class="cmd c-pasar g-ecuador" onclick="clickGrupo('ecuador')">${icono(g)}<span class="tit">BUSCAR</span><span class="sub">Buscar una carta en el mazo</span></button>` : "";
+  return `<button class="cmd c-pasar g-pasar" ${n ? "" : "disabled"} onclick="clickGrupo('pasar')">${icono(g)}` +
+    `<span class="tit">PASAR</span><span class="sub">Terminar el turno</span></button>`;
+}
+
+const puedeRendir = () => !!D && !D.salida && !D.snap.terminado;
+function botonRendir(chico = false) {
+  return `<button class="cmd c-rendir g-rendir${chico ? " chico" : ""}" ${puedeRendir() ? "" : "disabled"} onclick="rendirse()">${icono("rendir")}` +
+    `<span class="tit">RENDIRSE</span>${chico ? "" : '<span class="sub">Perder la partida</span>'}</button>`;
+}
+function rendirse() {
+  if (puedeRendir() && confirm("¿Rendirte? Vas a perder la partida.")) fetch("/rendirse", { method: "POST" });
+}
+
+function miniatura(nombre) {
+  return nombre ? `<img class="mini" src="/carta/${encodeURIComponent(nombre)}.png" alt="" onerror="this.style.visibility='hidden'">` : "";
+}
+
+function panelMenu() {
+  const s = D.snap, a = s.yo.activa;
+  let h = "";
+  if (s.terminado) h += `<div class="banner">${s.ganador === "Vos" ? "¡Ganaste!" : s.ganador ? "Ganó " + esc(s.ganador) : "Empate"}</div>`;
+  if (!PREG) {
+    const lineas = D.log.filter(l => l.startsWith("⏳") || l.startsWith("⚠️"));
+    const txt = lineas.length ? lineas[lineas.length - 1].replace(/^(⏳|⚠️)\s*/, "") : "Turno del rival…";
+    return h + `<div class="espera"><b>Esperando…</b>${esc(txt)}</div>` + (puedeRendir() ? botonRendir(true) : "");
+  }
+  if (PREG.titulo === TITULO_MENU) {
+    return h + `<div class="pregunta">${a ? `¿Qué va a hacer ${esc(a.nombre)}?` : TITULO_MENU}` +
+      `<small>Arrastrá cartas a la mesa y la energía a una carta</small></div><div class="grid ${ANIM ? "entra" : ""}">` +
+      Object.keys(GRUPOS).map(botonGrupo).join("") + botonRendir() + `</div>`;
+  }
+
+  return h + `<div class="pregunta">${esc(PREG.titulo)}</div><div class="lista">` +
+    PREG.opciones.map((o, i) => `<button class="fila-op" onclick="elegirOp(${i})">` +
+      miniatura(o.includes(" [") ? o.split(" [")[0] : null) + `<span class="t">${esc(o)}</span></button>`).join("") + `</div>` +
+    (puedeRendir() ? botonRendir(true) : "");
+}
+
+function clickGrupo(g) {
+  const ops = opsDe(g);
+  if (!ops.length) return;
+  if (g === "atacar" || g === "ecuador") return elegirOp(ops[0].i);
+  if (g === "pasar") {
+    const avisos = [];
+    if (opsDe("atacar").length) avisos.push("podés atacar");
+    if (D.snap.yo.energia_libre > 0) avisos.push("te queda energía por asignar");
+    if (avisos.length && !confirm("Todavía " + avisos.join(" y ") + ". ¿Pasar el turno igual?")) return;
+    return elegirOp(ops[0].i);
+  }
+}
+function elegirOp(i) { elegir(PREG.id, i); }
+
+function dibujarMenu() { document.getElementById("menu").innerHTML = panelMenu(); ANIM = false; }
 
 function render(d) {
+  limpiarDrag();
+  D = d; PREG = d.pregunta;
   const s = d.snap;
-  if (s) {
-    document.getElementById("tablero").innerHTML =
-      jugador(s.rival, "rival", s.puntos_meta) +
-      `<div class="centro">Terreno: <b>${s.terreno ? esc(s.terreno) : "—"}</b></div>` +
-      jugador(s.yo, "yo", s.puntos_meta) +
-      `<div class="mano">${zona("Tu mano", s.yo.mano)}</div>`;
-  }
-  let h = "";
-  if (s && s.terminado) h += `<div class="banner">${s.ganador ? "¡Ganó " + esc(s.ganador) + "!" : "Empate"}</div>`;
-  if (d.pregunta) {
-    h += `<h3>${esc(d.pregunta.titulo)}</h3>`;
-    d.pregunta.opciones.forEach((o, i) => {
-      h += `<button class="op" onclick="elegir(${d.pregunta.id}, ${i})">${esc(o)}</button>`;
-    });
-  } else {
-    h += "<h3>Jugando el rival...</h3>";
-  }
-  document.getElementById("preg").innerHTML = h;
+  if (PREG) {
+    OPS = PREG.opciones.map((label, i) => ({ i, label, ...clasificar(label) }));
+    if (PREG.id !== IDPREG) { IDPREG = PREG.id; ANIM = true; }
+  } else { OPS = []; IDPREG = null; }
+
+  document.getElementById("tablero").classList.toggle("con-terreno", !!s.terreno);
+  document.getElementById("tablero").innerHTML = campo(s);
+  dibujarMenu();
   const log = document.getElementById("log");
   log.textContent = d.log.join("\n");
   log.scrollTop = log.scrollHeight;
 }
 
+let ultimo = "";
 async function tick() {
   try {
-    const t = await (await fetch("/estado")).text();
+    const t = await (await fetch("/estado", { cache: "no-store" })).text();
     if (t === ultimo) return;
     ultimo = t;
     render(JSON.parse(t));
-  } catch (e) { /* servidor cerrado o reiniciando */ }
+  } catch (e) {  }
 }
 
 async function elegir(id, idx) {
-  await fetch("/elegir", { method: "POST", body: JSON.stringify({ id, idx }) });
+  await fetch("/elegir", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, idx }) });
   tick();
 }
 
-// Vista ampliada al pasar el mouse por una carta
+let DR = null;
+
+function opPara(src, dst) {
+  const dz = dst.dataset.drop, dn = dst.dataset.nombre;
+  if (src.tipo === "energia")
+    return dz === "carta" ? OPS.find(o => o.tipo === "energia" && o.m[1] === dn) : null;
+  if (src.tipo === "banca")
+    return dz === "activa" ? OPS.find(o => o.tipo === "retirar" && o.m[2] === src.nombre) : null;
+  if (COMBATE.includes(src.cat))
+    return dz === "banca" ? OPS.find(o => o.tipo === "jugar" && o.m[1] === src.nombre) : null;
+  if (src.cat === "Equipable")
+    return dz === "carta" ? OPS.find(o => o.tipo === "equipar" && o.m[1] === src.nombre && o.m[2] === dn) : null;
+  if (src.cat === "Partidario")
+    return dz === "mesa" ? OPS.find(o => o.tipo === "apoyo" && o.m[1] === src.nombre) : null;
+  if (src.cat === "Terreno")
+    return dz === "mesa" ? OPS.find(o => o.tipo === "terreno" && o.m[1] === src.nombre) : null;
+  return null;
+}
+
+function destino(x, y) {
+  for (let n = document.elementFromPoint(x, y); n; n = n.parentElement) {
+    const dz = n.dataset && n.dataset.drop;
+    if (!dz) continue;
+    if (dz === "mano") return null;
+    const op = opPara(DR.src, n);
+    if (op) return { el: n, op };
+  }
+  return null;
+}
+
+function empezarDrag() {
+  DR.on = true;
+  const g = document.createElement("div");
+  g.id = "ghost";
+  if (DR.src.tipo === "energia") { g.className = "orbe"; g.appendChild(DR.el.cloneNode(true)); }
+  else { g.style.width = DR.el.offsetWidth + "px"; g.appendChild(DR.el.querySelector(".tc").cloneNode(true)); }
+  document.body.appendChild(g);
+  DR.ghost = g;
+  DR.el.classList.add("origen");
+  document.body.classList.add("arrastrando");
+  zoom.style.display = "none";
+  document.querySelectorAll("[data-drop]").forEach(n => {
+    if (n.dataset.drop !== "mano" && opPara(DR.src, n)) n.classList.add("valido");
+  });
+}
+
+function limpiarDrag() {
+  if (!DR) return;
+  if (DR.ghost) DR.ghost.remove();
+  DR.el.classList.remove("origen");
+  document.body.classList.remove("arrastrando");
+  document.querySelectorAll(".valido, .sobre").forEach(n => n.classList.remove("valido", "sobre"));
+  DR = null;
+}
+
+document.addEventListener("dragstart", e => e.preventDefault());
+document.addEventListener("pointerdown", e => {
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  const el = e.target.closest(".arrastrable");
+  if (!el || !hayMenu()) return;
+  DR = { el, x: e.clientX, y: e.clientY, on: false, ghost: null,
+         src: { tipo: el.dataset.drag, nombre: el.dataset.nombre, cat: el.dataset.cat } };
+});
+document.addEventListener("pointermove", e => {
+  if (!DR) return;
+  if (!DR.on) {
+    if (Math.hypot(e.clientX - DR.x, e.clientY - DR.y) < 7) return;
+    empezarDrag();
+  }
+  DR.ghost.style.left = e.clientX + "px";
+  DR.ghost.style.top = e.clientY + "px";
+  document.querySelectorAll(".sobre").forEach(n => n.classList.remove("sobre"));
+  const t = destino(e.clientX, e.clientY);
+  if (t) t.el.classList.add("sobre");
+});
+document.addEventListener("pointerup", e => {
+  if (!DR) return;
+  const t = DR.on ? destino(e.clientX, e.clientY) : null;
+  limpiarDrag();
+  if (t) elegirOp(t.op.i);
+});
+document.addEventListener("pointercancel", limpiarDrag);
+document.addEventListener("keydown", e => { if (e.key === "Escape") limpiarDrag(); });
+
 const zoom = document.getElementById("zoom");
 document.addEventListener("mouseover", e => {
+  if (DR && DR.on) return;
   const c = e.target.closest(".carta");
   if (!c) { zoom.style.display = "none"; return; }
   const r = c.getBoundingClientRect();
-  const centroTablero = (window.innerWidth - 340) / 2;
+  const centroTablero = (window.innerWidth - document.getElementById("lateral").offsetWidth) / 2;
   zoom.className = (r.left + r.width / 2 < centroTablero) ? "der" : "izq";
-  zoom.querySelector("img").src = c.dataset.img;
-  const dato = zoom.querySelector("div");
+  zoom.querySelector(".zc").replaceChildren(c.querySelector(".tc").cloneNode(true));
+  const dato = zoom.querySelector(".zd");
   dato.textContent = c.dataset.dato;
   dato.style.display = c.dataset.dato ? "block" : "none";
   zoom.style.display = "block";

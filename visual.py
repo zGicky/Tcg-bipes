@@ -15,8 +15,8 @@ COLOR_CAT = {
     "Partidario": "#1e8449", "Terreno": "#9c6b1e", "Equipable": "#ca6f1e",
 }
 COLOR_RAREZA = {
-    "Común": "#9e9e9e", "Raro": "#3b82f6", "Épico": "#a855f7",
-    "Legendario": "#f5b301", "Mítico": "#ff4d6d",
+    "Común": "#b8bcc4", "Raro": "#22c55e", "Épico": "#a855f7",
+    "Legendario": "#f5b301", "Mítico": "#e11d9a",
 }
 
 
@@ -98,7 +98,7 @@ def dibujar_carta(d):
     cat = d["categoria"]
     combate = cat in VENTAJA
     color = rgb(COLOR_CAT[cat])
-    borde = rgb(COLOR_RAREZA.get(d.get("rareza", ""), "#d0d0d0"))
+    borde = (14, 14, 20)
     full = d.get("full_art", False)
     alfa = 165 if full else 255
     oscuro = (24, 24, 34)
