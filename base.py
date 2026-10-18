@@ -1,5 +1,6 @@
 import os
 import copy
+from collections import Counter
 import random
 import types
 import sys
@@ -11,10 +12,15 @@ PUNTOS_PARA_GANAR = 3
 TAM_BANCA = 3
 MANO_INICIAL = 5
 MAX_TURNOS = 150
-DANO_QUEMADURA = 10    # Nido de la dragona chichoba: daño por turno de la carta quemada
+DANO_QUEMADURA = 10
 TURNOS_QUEMADURA = 3
-BOOST_NIDO = 20        # Masimo en el Nido: daño extra en sus ataques
-EXTRA_MASIMO = 20      # Pendejo bts: daño extra que recibe Masimo si sale cruz
+BOOST_NIDO = 20
+RELACIONADAS_MASIMO = ("Masimo",)
+EXTRA_MASIMO = 20
+TAM_MAZO = 20
+MIN_COMBATE = 6
+COPIAS_MAX = 2
+COPIAS_POR_RAREZA = {"Legendario": 1, "Mítico": 1}
 PAUSA_CPU = float(os.environ.get("TCG_PAUSA", "0.6"))
 
 VENTAJA = {"Atacante": "Mago", "Mago": "Tanque", "Tanque": "Atacante"}
@@ -30,12 +36,53 @@ def mult(atacante, defensor):
     return 1
 
 
+def copias_max(datos):
+    """Cuántas copias de esta carta puede llevar un mazo."""
+    return COPIAS_POR_RAREZA.get(datos.get("rareza", ""), COPIAS_MAX)
+
+
+def validar_mazo(nombres):
+    """Lista de problemas de un mazo (lista de nombres de cartas, con repetidos). Vacía si es válido."""
+    por_nombre = {d["nombre"]: d for d in CARTAS}
+    cuenta = Counter(nombres)
+    errores = []
+    if len(nombres) != TAM_MAZO:
+        errores.append(f"El mazo tiene que tener {TAM_MAZO} cartas (ahora tiene {len(nombres)}).")
+    for n, veces in cuenta.items():
+        if n not in por_nombre:
+            errores.append(f"La carta «{n}» no existe.")
+        elif veces > copias_max(por_nombre[n]):
+            errores.append(f"«{n}»: máximo {copias_max(por_nombre[n])} copia(s) (tiene {veces}).")
+    combate = sum(v for n, v in cuenta.items() if n in por_nombre and por_nombre[n]["categoria"] in COMBATE)
+    if combate < MIN_COMBATE:
+        errores.append(f"Necesitás al menos {MIN_COMBATE} cartas de combate (tiene {combate}).")
+    return errores
+
+
+def mazo_aleatorio():
+    """Un mazo válido armado al azar."""
+    while True:
+        cuenta = Counter()
+        mazo = []
+        pool = list(CARTAS)
+        random.shuffle(pool)
+        for d in [x for x in pool if x["categoria"] in COMBATE][:MIN_COMBATE]:
+            mazo.append(d["nombre"]); cuenta[d["nombre"]] += 1
+        while len(mazo) < TAM_MAZO:
+            d = random.choice(CARTAS)
+            if cuenta[d["nombre"]] < copias_max(d):
+                mazo.append(d["nombre"]); cuenta[d["nombre"]] += 1
+        if not validar_mazo(mazo):
+            return mazo
+
+
 class Carta:
     def __init__(self, datos):
         base = dict(rareza="", costo=0, retirada=0, ps=0, dano=0, full_art=False)
         base.update(datos)
         self.__dict__.update(base)
         self.ps_max = self.ps
+        self.costo_base = self.costo
         self.energia = 0
         self.equipo = None
         self.confundido = False
@@ -46,7 +93,8 @@ class Carta:
         self.veneno = 0
         self.quemadura = 0
         self.boost = 0
-        self.dano_extra = 0   # daño extra que recibe esta carta durante un ataque (Masimo)
+        self.inmune = False
+        self.dano_extra = 0
 
     @property
     def es_combate(self):
@@ -82,10 +130,14 @@ class Carta:
 
 
 class Jugador:
-    def __init__(self, nombre, cpu=False):
+    def __init__(self, nombre, cpu=False, mazo=None):
         self.nombre = nombre
         self.cpu = cpu
-        self.mazo = [Carta(d) for d in CARTAS]
+        if mazo is None:
+            self.mazo = [Carta(d) for d in CARTAS]
+        else:
+            por_nombre = {d["nombre"]: d for d in CARTAS}
+            self.mazo = [Carta(por_nombre[n]) for n in mazo]
         random.shuffle(self.mazo)
         self.mano = []
         self.activa = None
@@ -94,6 +146,8 @@ class Jugador:
         self.energia_libre = 0
         self.apoyo_usado = False
         self.retirada_usada = False
+        self.cubo_usado = False
+        self.descarte = []
         self.ecuador_usado = False
 
     def en_juego(self):
@@ -119,7 +173,7 @@ def a_kono(j, yo, rv, c, d):
 
 
 def a_aleseto(j, yo, rv, c, d):
-    j.atk(c, d, c.dano + min(40, 10 * c.turnos_activo))
+    j.atk(c, d, c.dano + min(30, 10 * c.turnos_activo))
 
 
 def a_tay(j, yo, rv, c, d):
@@ -152,7 +206,7 @@ def a_dandyd(j, yo, rv, c, d):
 
 def a_larco(j, yo, rv, c, d):
     j.atk(c, d, c.dano)
-    c.escudo = 30
+    c.escudo = 20
 
 
 def a_poto(j, yo, rv, c, d):
@@ -164,7 +218,54 @@ def a_geeksito(j, yo, rv, c, d):
     j.atk(c, d, c.dano + 20 * (len(yo.en_juego()) - 1))
 
 
+def a_flanseto(j, yo, rv, c, d):
+    cara = random.random() < 0.5
+    print(f"  Moneda: {'cara' if cara else 'cruz'}")
+    j.atk(c, d, c.dano + (20 if cara else 0))
+
+
+def a_tm_opera(j, yo, rv, c, d):
+    j.atk(c, d, c.dano + (30 if d.ps > c.ps else 0))
+
+
+def a_myome(j, yo, rv, c, d):
+    j.atk(c, d, c.dano)
+    cara = random.random() < 0.5
+    print(f"  Neo Nato: sale {'cara' if cara else 'cruz'}")
+    if cara:
+        c.inmune = True
+
+
+def a_gengar(j, yo, rv, c, d):
+    j.atk(c, d, c.dano + (30 if any(x.nombre == "Mantekita" for x in yo.descarte) else 0))
+
+
+def a_larc(j, yo, rv, c, d):
+    j.atk(c, d, c.dano)
+    if len(yo.mazo) < 2:
+        return
+    a, b = yo.mazo[-1], yo.mazo[-2]
+    if not yo.cpu and j.elegir_idx([f"{a.nombre} arriba, luego {b.nombre}", f"{b.nombre} arriba, luego {a.nombre}"],
+                                   "Pokemaniaco: ordená las 2 primeras cartas de tu mazo", yo) == 1:
+        yo.mazo[-1], yo.mazo[-2] = b, a
+    print(f"  {yo.nombre} mira y ordena las 2 primeras cartas de su mazo")
+
+
+def a_kevin(j, yo, rv, c, d):
+    ale = next((x for x in yo.en_juego() if x.nombre == "Aleseto"), None)
+    j.atk(c, d, c.dano + (10 if ale else 0))
+    if ale and ale is not yo.activa and c is yo.activa and c.ps > 0 and not c.embobado:
+        if yo.cpu or j.elegir_idx(["Sí, retirarse gratis y poner a Aleseto", "No"], "ElKevinxdd: ¿te retirás gratis?", yo) == 0:
+            c.turnos_activo = 0
+            yo.banca.remove(ale)
+            yo.banca.append(c)
+            yo.activa = ale
+            print(f"  {yo.nombre} retira gratis a {c.nombre} y pone a {ale.nombre} como activa")
+
+
 ATAQUES = {
+    "Gengar do mantequinha": a_gengar, "Larc": a_larc, "ElKevinxdd": a_kevin,
+    "Flanseto": a_flanseto, "TM Opera": a_tm_opera, "MyomeSanz": a_myome,
     "Chichotas": a_chichotas, "Spreenfino": a_spreenfino, "Kono": a_kono,
     "Aleseto": a_aleseto, "Tay": a_tay, "Manuelito": a_manuelito,
     "Mantekita": a_mantekita, "Tanque Bondiola": a_bondiola, "Dandyd": a_dandyd,
@@ -173,9 +274,14 @@ ATAQUES = {
 
 
 def p_bocchi(j, yo, rv):
-    j.robar(yo, 2)
-    if yo.activa and yo.activa.nombre == "Aleseto":
-        j.curar(yo.activa, 30)
+    cartas = yo.en_juego()
+    if not cartas:
+        return
+    if yo.cpu:
+        c = max(cartas, key=lambda x: x.ps_max - x.ps)
+    else:
+        c = cartas[j.elegir_idx([f"{x.nombre} (PS {x.ps}/{x.ps_max})" for x in cartas], "Bocchi: ¿a qué carta curás?", yo)]
+    j.curar(c, 50 if c.nombre == "Aleseto" else 30)
 
 
 def p_denji(j, yo, rv):
@@ -184,7 +290,19 @@ def p_denji(j, yo, rv):
             j.curar(c, 20)
 
 
-APOYOS = {"Bocchi": p_bocchi, "Denji": p_denji}
+def p_fuecoco(j, yo, rv):
+    if yo.mano:
+        if yo.cpu:
+            c = random.choice(yo.mano)
+        else:
+            c = yo.mano[j.elegir_idx([x.nombre for x in yo.mano], "Fuecoco: ¿qué carta descartás?", yo)]
+        yo.mano.remove(c)
+        yo.descarte.append(c)
+        print(f"  {yo.nombre} descarta {c.nombre}")
+    j.robar(yo, 2)
+
+
+APOYOS = {"Bocchi": p_bocchi, "Denji": p_denji, "Fuecoco": p_fuecoco}
 
 
 def datos_carta(c):
@@ -208,12 +326,22 @@ def datos_carta(c):
 
 
 class Juego:
-    def __init__(self, auto=False, ui=None, pvp=False):
+    def __init__(self, auto=False, ui=None, pvp=False, mazos=None):
+        """mazos: [mazo_asiento_0, mazo_asiento_1], cada uno una lista de nombres (o None).
+        En las partidas del servidor (ui) quien no tenga un mazo válido juega con uno al azar."""
         if pvp:
-            self.jugadores = [Jugador("Jugador 1"), Jugador("Jugador 2")]
+            quienes = [("Jugador 1", False), ("Jugador 2", False)]
         else:
-            self.jugadores = [Jugador("CPU 1" if auto else "Vos", cpu=auto),
-                              Jugador("CPU 2" if auto else "CPU", cpu=True)]
+            quienes = [("CPU 1" if auto else "Vos", auto), ("CPU 2" if auto else "CPU", True)]
+        mazos = list(mazos) if mazos else [None, None]
+        self.jugadores = []
+        for i, (nombre, cpu) in enumerate(quienes):
+            m = mazos[i] if i < len(mazos) else None
+            if m is not None and validar_mazo(m):
+                m = None
+            if m is None and ui is not None:
+                m = mazo_aleatorio()
+            self.jugadores.append(Jugador(nombre, cpu=cpu, mazo=m))
         self.preparando = False
         self.terreno = None
         self.ganador = None
@@ -223,7 +351,16 @@ class Juego:
     def rival_de(self, jug):
         return self.jugadores[1 - self.jugadores.index(jug)]
 
+    def actualizar_costos(self):
+        for j in self.jugadores:
+            for c in j.mano + j.mazo:
+                c.costo = c.costo_base
+            rebaja = any(c.nombre == "Nekoark" for c in j.en_juego())
+            for c in j.en_juego():
+                c.costo = 1 if rebaja and c.nombre in RELACIONADAS_MASIMO and c.costo_base > 1 else c.costo_base
+
     def snapshot(self, desde=None):
+        self.actualizar_costos()
         humano = desde or next((j for j in self.jugadores if not j.cpu), self.jugadores[0])
 
         def datos(j, ver_mano):
@@ -261,6 +398,8 @@ class Juego:
             b += 20
         if c.equipo and c.equipo.nombre == "Mezcladora de Forten":
             b += 10
+        if c.equipo and c.equipo.nombre == "Yamato":
+            b += 20
         if c.equipo and c.equipo.nombre == "Hacha oxidada":
             b += 30 if c.nombre in ("Geeksito", "Chichotas") else 20
         return b + c.boost
@@ -269,10 +408,13 @@ class Juego:
         self.golpear(c, d, (base + self.bonus(c)) * mult(c, d))
 
     def golpear(self, c, d, bruto):
-        dano = bruto + d.dano_extra - d.escudo
-        if c.embobado:
+        yamato = c.equipo and c.equipo.nombre == "Yamato"
+        dano = bruto + d.dano_extra - (0 if yamato else d.escudo)
+        if c.embobado and not yamato:
             dano -= 20
         dano = max(0, int(dano))
+        if d.inmune:
+            dano = 0
         d.ps = max(0, d.ps - dano)
         print(f"  {c.nombre} hace {dano} de daño a {d.nombre} (PS {d.ps}/{d.ps_max})")
 
@@ -317,7 +459,24 @@ class Juego:
         if d.equipo and d.equipo.nombre == "El Chori":
             c.ps = max(0, c.ps - 20)
             print(f"  Capa de Grasa: {c.nombre} recibe 20 de daño (PS {c.ps}/{c.ps_max})")
+        if d.equipo and d.equipo.nombre == "Pelota Esquizo" and d.ps > 0 and d is rv.activa and rv.banca and not d.embobado:
+            b = self.elegir(rv, rv.banca, f"Pelota Esquizo: {d.nombre} se retira gratis, elegí tu nueva carta activa")
+            d.turnos_activo = 0
+            rv.banca.remove(b)
+            rv.banca.append(d)
+            rv.activa = b
+            print(f"  Dribbleo: {rv.nombre} retira gratis a {d.nombre} y pone a {b.nombre} como activa")
         self.resolver_kos()
+
+    def usar_cubo(self, yo):
+        rv = self.rival_de(yo)
+        yo.cubo_usado = True
+        caras = sum(random.random() < 0.5 for _ in range(4))
+        print(f"  Cubo de tetris: {caras} de 4 monedas salen cara")
+        if caras == 4 and rv.activa:
+            print(f"  ¡Línea completa! {rv.activa.nombre} queda eliminado")
+            rv.activa.ps = 0
+            self.resolver_kos()
 
     def resolver_kos(self):
         for jug in self.jugadores:
@@ -326,6 +485,9 @@ class Juego:
                 if c.ps <= 0:
                     print(f"  {c.nombre} fue derrotado: {rv.nombre} gana 1 punto")
                     rv.puntos += 1
+                    jug.descarte.append(c)
+                    if c.equipo:
+                        jug.descarte.append(c.equipo)
                     if c is jug.activa:
                         jug.activa = None
                     else:
@@ -363,6 +525,7 @@ class Juego:
 
     def apoyo(self, yo, c):
         yo.mano.remove(c)
+        yo.descarte.append(c)
         yo.apoyo_usado = True
         print(f"  {yo.nombre} juega al Partidario {c.nombre}: {c.habilidad}")
         APOYOS.get(c.nombre, lambda *a: None)(self, yo, self.rival_de(yo))
@@ -371,10 +534,10 @@ class Juego:
         yo.mano.remove(c)
         self.terreno = c.nombre
         print(f"  {yo.nombre} juega el Terreno {c.nombre}")
-        if c.nombre == "Nido de la dragona chichoba":
-            self.nido_chichoba()
+        if c.nombre == "Nido de la dragona chichona":
+            self.nido_chichona()
 
-    def nido_chichoba(self):
+    def nido_chichona(self):
         for j in self.jugadores:
             a = j.activa
             if not a:
@@ -397,6 +560,7 @@ class Juego:
         print(f"  {yo.nombre} retira a {a.nombre} y pone a {b.nombre} como activa")
 
     def acciones(self, yo):
+        self.actualizar_costos()
         acc = []
         if yo.energia_libre:
             for c in yo.en_juego():
@@ -417,6 +581,8 @@ class Juego:
                 acc.append(("terreno", f"Jugar Terreno: {c.nombre}", lambda c=c: self.poner_terreno(yo, c)))
         if self.terreno == "Ecuador" and not yo.ecuador_usado and self.opciones_ecuador(yo):
             acc.append(("ecuador", "Ecuador: buscar en el mazo", lambda: self.buscar_ecuador(yo)))
+        if yo.activa and yo.activa.equipo and yo.activa.equipo.nombre == "Cubo de tetris" and not yo.cubo_usado and self.rival_de(yo).activa:
+            acc.append(("cubo", "Cubo de tetris: tirar 4 monedas", lambda: self.usar_cubo(yo)))
         a = yo.activa
         if yo.banca and not yo.retirada_usada and not a.embobado and a.energia >= a.retirada:
             for b in yo.banca:
@@ -462,7 +628,7 @@ class Juego:
 
     def elegir_accion(self, yo, acc):
         if yo.cpu:
-            for tipo in ("energia", "jugar", "equipar", "apoyo", "terreno", "ecuador", "atacar", "pasar"):
+            for tipo in ("energia", "jugar", "equipar", "apoyo", "terreno", "ecuador", "cubo", "atacar", "pasar"):
                 for a in acc:
                     if a[0] == tipo:
                         return a
@@ -537,8 +703,14 @@ class Juego:
                     o.__dict__["ui"] = ui
 
     def turno(self, yo, rv):
-        yo.apoyo_usado = yo.retirada_usada = yo.ecuador_usado = False
+        yo.apoyo_usado = yo.retirada_usada = yo.ecuador_usado = yo.cubo_usado = False
         yo.energia_libre = ENERGIA_POR_TURNO
+        if self.terreno == "Techo de Maxi" and yo.activa:
+            cara = random.random() < 0.5
+            print(f"  Techo de Maxi: sale {'cara' if cara else 'cruz'}")
+            if not cara and yo.activa.energia > 0:
+                yo.activa.energia -= 1
+                print(f"  {yo.activa.nombre} pierde 1 energía por la inundación")
         self.robar(yo)
         yo.activa.turnos_activo += 1
         self.mostrar(yo, rv)
@@ -583,6 +755,7 @@ class Juego:
             self.resolver_kos()
         for c in rv.en_juego():
             c.escudo = 0
+            c.inmune = False
         self.actualizar(PAUSA_CPU if yo.cpu else 0)
 
     def preparar(self):

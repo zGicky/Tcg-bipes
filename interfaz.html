@@ -17,10 +17,28 @@
   body { margin: 0; height: 100vh; display: flex; background: var(--fondo); color: var(--texto);
          font: 15px system-ui, sans-serif; }
   #tablero { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; min-width: 0; overflow-y: auto; }
-  #lateral { width: var(--lateral); background: var(--panel); padding: 12px 12px 50px; display: flex;
+  #lateral { width: var(--lateral); background: var(--panel); padding: 12px 12px 70px; display: flex;
              flex-direction: column; gap: 10px; }
-  #log { flex: 1; overflow-y: auto; font-size: 12.5px; color: #bbbbbb; white-space: pre-wrap;
-         border-top: 1px solid #333; padding-top: 8px; }
+  .logt { font: 800 11px system-ui; letter-spacing: .18em; text-transform: uppercase; color: #8f8fa6; display: flex; align-items: center; gap: 8px; }
+  .logt::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, #ffffff30, transparent); }
+  #log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; scrollbar-width: thin; scrollbar-color: #44445a transparent; }
+  .turno { --ac: #8f8fa6; --acr: 143, 143, 166; border-left: 3px solid var(--ac); border-radius: 0 10px 10px 0; padding: 5px 8px 6px; margin: 7px 0 2px;
+           background: linear-gradient(90deg, rgba(var(--acr), .14), transparent 75%); display: flex; flex-direction: column; gap: 3px; }
+  .turno.yo { --ac: #3b82f6; --acr: 59, 130, 246; }
+  .turno.ri { --ac: #ef4444; --acr: 239, 68, 68; }
+  .turno .tn { font: 800 11px system-ui; letter-spacing: .16em; text-transform: uppercase; color: var(--ac); }
+  .ev { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.35; color: #c9c9d6; padding: 1px 0; }
+  .ev .ic { flex: none; width: 20px; height: 20px; border-radius: 6px; background: #ffffff14; display: grid; place-items: center; font-size: 12px; }
+  .ev b { color: #fff; }
+  .ev small { color: #8f8fa6; font-size: 11px; margin-left: 4px; white-space: nowrap; }
+  .ev.ataque { color: #fff; font-weight: 700; }
+  .ev.ataque .ic { background: #f5b30138; }
+  .ev.dano { color: #ffd6d6; }
+  .ev.dano b { color: #ff6b6b; }
+  .ev.dano .ic { background: #ef444438; }
+  .ev.cura .ic { background: #22c55e38; }
+  .ev.nuevo { animation: logIn .35s ease-out; }
+  @keyframes logIn { from { opacity: 0; transform: translateX(-8px); } }
 
   .info { color: #bbbbbb; font-size: 13px; margin-bottom: 2px; }
   .info b { color: var(--texto); }
@@ -113,7 +131,12 @@
   .pipsc { display: flex; gap: 4px; }
   .pipsc i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; background: #000a; box-shadow: 0 1px 3px #000a; }
   .pipsc i.on { background: radial-gradient(circle at 35% 30%, #fff6a8, #ffd60a 60%, #d99a00); border-color: #222; box-shadow: 0 0 8px #ffd60acc; }
-  .tags { position: absolute; left: 5%; top: 27%; z-index: 3; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; pointer-events: none; }
+  .tags { position: absolute; left: 5%; top: 27%; z-index: 3; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; pointer-events: none; }
+  .est { position: relative; width: max(16cqw, 20px); height: max(16cqw, 20px); border-radius: 50%; background: #0d0d14ee; border: 2px solid var(--ec); color: var(--ec);
+         display: grid; place-items: center; box-shadow: 0 0 9px var(--ec); box-sizing: border-box; }
+  .est svg { width: 68%; height: 68%; }
+  .est i { position: absolute; right: -34%; bottom: -26%; min-width: 1.5em; padding: 0 3px; border-radius: 99px; background: var(--ec); color: #0d0d14;
+           font-size: max(4.8cqw, 9px); font-weight: 800; line-height: 1.35; font-style: normal; text-align: center; font-family: system-ui, sans-serif; }
   .tags .tag { margin: 0; font-weight: 700; background: #000c; border: 1px solid rgba(var(--cc), .9); color: #fff; padding: 2px 6px; border-radius: 6px; font-size: 10.5px; }
 
   .campo { flex: none; margin-block: auto; display: grid; justify-content: center; row-gap: 8px;
@@ -131,8 +154,13 @@
   .zona .cap { text-align: center; }
   .lado .cartas, .mano .cartas { justify-content: center; }
   .mano { display: flex; justify-content: center; flex: none; }
-  .mano .carta { width: clamp(64px, 8.5vh, 112px); }
-  .mano .cartas { flex-wrap: wrap; }
+  .mano { --wm: clamp(78px, 11.5vh, 130px); }
+  .mano .cartas { flex-wrap: nowrap; align-items: flex-end; gap: 0; padding: 42px 24px 0; }
+  .mano .carta { width: var(--wm); margin-left: calc(var(--wm) * -.3); transform: translateY(var(--y, 0)) rotate(var(--r, 0deg)); transform-origin: 50% 140%; }
+  .mano .carta:first-child { margin-left: 0; }
+  .mano .carta:hover { transform: translateY(-38px) rotate(0deg) scale(1.2); z-index: 20; }
+  .hueco { width: var(--w); height: calc(var(--w) * 1.5); box-sizing: border-box; margin-bottom: 24px; border: 2px dashed #4a4a60; border-radius: 12px;
+           display: grid; place-items: center; text-align: center; padding: 0 6px; color: #7a7a94; font: 600 12px/1.2 system-ui; }
   .mitad .activa .cartas { justify-content: center; }
 
   @media (min-width: 1001px) { #tablero.con-terreno { padding-right: 240px; } }
@@ -226,12 +254,64 @@
 <div id="tablero">Cargando...</div>
 <div id="lateral">
   <div id="menu"></div>
+  <div class="logt">Historial del combate</div>
   <div id="log"></div>
 </div>
 <div id="zoom"><div class="zc"></div><div class="zd"></div></div>
 <script>
 const COMBATE = ["Atacante", "Tanque", "Mago"];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const ICONOS_LOG = [[/ baja a /, "🃏"], [/ equipa /, "🛡️"], [/ juega (al|el) /, "✨"], [/ usa /, "⚔️"], [/hace \d+ de daño/, "💥"],
+  [/se cura|cura \d+/i, "💚"], [/Gangrena|Quemadura/, "☠️"], [/Confundido|Embobado/, "💫"], [/retira/i, "↩️"], [/roba|busca/i, "📥"],
+  [/KO|derrot|punto/i, "🏆"], [/energía/i, "⚡"]];
+let logN = 0;
+function logHTML(lineas, yo) {
+  let h = "", abierto = false, i = 0;
+  const previo = logN;
+  for (const raw of lineas) {
+    const t = raw.trim();
+    if (!t) continue;
+    const m = t.match(/^-+ Turno de (.+?) -+$/);
+    if (m) {
+      if (abierto) h += "</div>";
+      h += `<div class="turno ${m[1] === yo ? "yo" : "ri"}"><div class="tn">Turno de ${esc(m[1])}</div>`;
+      abierto = true; i++;
+      continue;
+    }
+    const emo = t.match(/^\p{Extended_Pictographic}\uFE0F?/u);
+    const ic = emo ? emo[0] : (ICONOS_LOG.find(([r]) => r.test(t)) || [0, "•"])[1];
+    const txt = esc(emo ? t.slice(emo[0].length).trim() : t)
+      .replace(/(\d+) de daño/, "<b>$1</b> de daño").replace(/\(PS (\d+)\/(\d+)\)/, "<small>PS $1/$2</small>");
+    const cls = /hace \d+ de daño/.test(t) ? " dano" : /cura/i.test(t) ? " cura" : / usa /.test(t) ? " ataque" : "";
+    h += `<div class="ev${cls}${i >= previo ? " nuevo" : ""}"><span class="ic">${ic}</span><span>${txt}</span></div>`;
+    i++;
+  }
+  logN = i < previo ? 0 : i;
+  return h + (abierto ? "</div>" : "");
+}
+
+const SVG_EST = {
+  Confundido: ["#c084fc", '<path d="M8.3 8.6a3.7 3.7 0 1 1 5.4 3.3c-1.1.6-1.7 1.3-1.7 2.6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="19" r="1.6" fill="currentColor"/>'],
+  Embobado: ["#f9a8d4", '<path d="M12.9 12.0 L13.0 12.8 L12.5 13.6 L11.4 13.9 L10.1 13.4 L9.3 12.0 L9.6 10.2 L11.0 8.8 L13.1 8.5 L15.3 9.6 L16.4 12.0 L15.8 14.8 L13.6 16.9 L10.3 17.2 L7.3 15.4 L5.9 12.0 L6.8 8.2 L9.9 5.5 L14.2 5.2 L18.1 7.6 L19.9 12.0 L18.7 16.8 L14.6 20.1 L9.2 20.5 L4.5 17.4 L2.4 12.0 L3.9 6.2 L8.8 2.2 L15.3 1.9 L20.9 5.5 L23.3 12.0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>'],
+  Gangrena: ["#4ade80", '<path d="M12 2.5C9 7 5.5 10.5 5.5 14.5a6.5 6.5 0 0 0 13 0C18.5 10.5 15 7 12 2.5z" fill="currentColor"/><circle cx="9.7" cy="14" r="1.5" fill="#0d0d14"/><circle cx="14.3" cy="14" r="1.5" fill="#0d0d14"/><path d="M10 18h4" stroke="#0d0d14" stroke-width="1.6" stroke-linecap="round"/>'],
+  Quemadura: ["#fb923c", '<path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 .5 2 1 3 2 3 0-3-1-5 1-8z" fill="currentColor"/><path d="M12 22a3 3 0 0 1-3-3c0-1.6 1.4-2.6 2-4 .6 1 1 1.4 1.6 1.4.8-.8 1.4-1.6 1.4-2.8 1.6 1.2 2 2.6 2 3.6a3 3 0 0 1-3 4.8z" fill="#fde68a"/>'],
+  Daño: ["#f87171", '<path d="M12 3l7.5 8.5h-4.7V21H9.2v-9.5H4.5z" fill="currentColor"/>'],
+  Escudo: ["#93c5fd", '<path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z" fill="currentColor"/>'],
+  Cargas: ["#fde047", '<path d="M13.5 2L4.5 14H10l-1.2 8L19 9.5h-6z" fill="currentColor"/>'],
+};
+function estadoHTML(t) {
+  let k, n = "";
+  const m = t.match(/^(Confundido|Embobado|Gangrena|Quemadura|Escudo|Cargas)\b\s*-?(\d+)?/);
+  if (m) { k = m[1]; n = m[2] ? (k === "Escudo" ? "-" : "") + m[2] : ""; }
+  else {
+    const b = t.match(/^\+(\d+) daño/);
+    if (!b) return null;
+    k = "Daño"; n = "+" + b[1];
+  }
+  const [col, svg] = SVG_EST[k];
+  return `<span class="est" title="${esc(t)}" style="--ec:${col}"><svg viewBox="0 0 24 24">${svg}</svg>${n ? `<i>${n}</i>` : ""}</span>`;
+}
 
 const hayMenu = () => !!PREG && PREG.titulo === TITULO_MENU;
 function puedeMover(c, tipo) {
@@ -245,7 +325,6 @@ function puedeMover(c, tipo) {
   return false;
 }
 
-// Si el texto del efecto no entra, achica la letra hasta que la carta se vea completa.
 function ajustarCartas(raiz = document) {
   raiz.querySelectorAll(".tc").forEach(t => {
     const ef = t.querySelector(".ef"), caja = t.querySelector(".in");
@@ -285,8 +364,8 @@ function carta(c, o = {}) {
           ` data-nombre="${esc(c.nombre)}" data-cat="${esc(c.categoria)}" data-rareza="${esc(c.rareza || "")}"` +
           (mover ? ` data-drag="${o.drag}"` : "") + (o.drop ? ` data-drop="carta"` : "") + `>` +
           `<div class="marco">${tc(c)}<span class="shine"></span>`;
-  const tags = (c.equipo ? [c.equipo] : []).concat(c.estados);
-  if (tags.length && o.enjuego) h += `<div class="tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>`;
+  const tags = (c.equipo ? [`<span class="tag">${esc(c.equipo)}</span>`] : []).concat(c.estados.map(t => estadoHTML(t) || `<span class="tag">${esc(t)}</span>`));
+  if (tags.length && o.enjuego) h += `<div class="tags">${tags.join("")}</div>`;
   if (enjuego) {
     const pct = Math.max(0, Math.min(100, 100 * c.ps / c.ps_max));
     const col = pct > 50 ? "linear-gradient(#7be07f,#2e9e3a)" : pct > 25 ? "linear-gradient(#ffd75e,#e0a000)" : "linear-gradient(#ff8080,#d62828)";
@@ -298,7 +377,16 @@ function carta(c, o = {}) {
 
 const zona = (cap, cartas, clase = "", o = {}) =>
   `<div class="zona ${clase}"${o.zona ? ` data-drop="${o.zona}"` : ""}><div class="cap">${cap}</div><div class="cartas">` +
-  (cartas.length ? cartas.map(c => carta(c, o)).join("") : '<div class="vacio"></div>') + "</div></div>";
+  (cartas.length || o.huecos ? cartas.map(c => carta(c, o)).join("") : '<div class="vacio"></div>') +
+  '<div class="hueco">Banca libre</div>'.repeat(Math.max(0, (o.huecos || 0) - cartas.length)) + "</div></div>";
+
+const TAM_BANCA = 3;
+const manoZ = mano => {
+  const n = mano.length, m = (n - 1) / 2, paso = Math.min(5, 24 / Math.max(n - 1, 1));
+  const cartas = mano.map((c, i) => carta(c, { drag: "mano" }).replace('<div class="carta',
+    `<div style="--r:${((i - m) * paso).toFixed(1)}deg;--y:${(((i - m) ** 2) * paso * 0.8).toFixed(0)}px" class="carta`)).join("");
+  return `<div class="zona"><div class="cap">Tu mano</div><div class="cartas abanico">${cartas || '<div class="vacio"></div>'}</div></div>`;
+};
 
 const ICONO_ENERGIA = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M38 2 12 36h15l-5 26 30-38H36z"/></svg>';
 function orbe(j) {
@@ -312,7 +400,7 @@ const infoJ = (j, meta) => {
   return `<div class="info"><b>${esc(j.nombre)}</b> · Puntos ${j.puntos}/${meta} · Mazo ${j.mazo} · Mano ${j.mano_n}${libre}</div>`;
 };
 const activaZ = (j, propio) => zona("Activa", j.activa ? [j.activa] : [], "activa", propio ? { zona: "activa", drop: true, enjuego: true } : { enjuego: true });
-const bancaZ = (j, propio) => zona("Banca", j.banca, "", propio ? { zona: "banca", drop: true, drag: "banca", enjuego: true } : { enjuego: true });
+const bancaZ = (j, propio) => zona("Banca", j.banca, "", propio ? { zona: "banca", drop: true, drag: "banca", enjuego: true, huecos: TAM_BANCA } : { enjuego: true });
 
 function campo(s) {
   const yo = s.yo, ri = s.rival, meta = s.puntos_meta;
@@ -323,7 +411,7 @@ function campo(s) {
       `<span class="terr">Terreno<b>${s.terreno ? esc(s.terreno) : "—"}</b></span></div>` +
     `<div class="mitad rival">${activaZ(ri, false)}</div>` +
     `<div class="lado yo" data-drop="mesa">${infoJ(yo, meta)}${bancaZ(yo, true)}</div>` +
-    `<div class="mano" data-drop="mano">${zona("Tu mano", yo.mano, "", { drag: "mano" })}</div>` +
+    `<div class="mano" data-drop="mano">${manoZ(yo.mano)}</div>` +
   `</div>`;
 }
 
@@ -331,6 +419,7 @@ const TITULO_MENU = "¿Qué hacés?";
 const GRUPOS = {
   atacar:  { nombre: "ATACAR",  tipos: ["atacar"] },
   ecuador: { nombre: "BUSCAR", tipos: ["ecuador"] },
+  cubo: { nombre: "CUBO", tipos: ["cubo"] },
   pasar:   { nombre: "PASAR",   tipos: ["pasar"] },
 };
 const PATRONES = [
@@ -342,11 +431,13 @@ const PATRONES = [
   ["apoyo",   /^Jugar Partidario: (.+)$/],
   ["terreno", /^Jugar Terreno: (.+)$/],
   ["ecuador", /^Ecuador: buscar en el mazo$/],
+  ["cubo", /^Cubo de tetris: tirar 4 monedas$/],
   ["pasar",   /^Pasar el turno$/],
 ];
 const ICONOS = {
   atacar:  '<path d="M34 3c3 13-9 19-9 31 0 5 2 8 5 10-8-2-14-9-13-19-7 7-11 15-11 23 0 13 11 23 25 23s25-10 25-23C56 31 41 25 34 3z"/>',
   pasar:   '<path d="M8 8l24 24L8 56M32 8l24 24-24 24" fill="none" stroke="currentColor" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>',
+  cubo: '<path d="M10 10h16v16H10zM26 26h16v16H26zM42 26h16v16H42zM26 42h16v16H26z"/>',
   ecuador: '<path d="M8 10h14v44H8zM26 10h14v44H26zM44 14l12 3-10 38-12-3z"/>',
   rendir:  '<path d="M12 4v56h6V38h34L42 21 52 4z"/>',
 };
@@ -376,7 +467,10 @@ function botonGrupo(g) {
       `<span class="tit">ATACAR</span><span class="hab">${esc(n ? hab + dano : faltan)}</span>` +
       (a ? pips(a.energia, a.costo) : "") + `</button>`;
   }
-  if (g === "ecuador") return n ? `<button class="cmd c-pasar g-ecuador" onclick="clickGrupo('ecuador')">${icono(g)}<span class="tit">BUSCAR</span><span class="sub">Buscar una carta en el mazo</span></button>` : "";
+  if (g === "ecuador" || g === "cubo") {
+    const [t, s] = { ecuador: ["BUSCAR", "Buscar una carta en el mazo"], cubo: ["CUBO", "Tirar 4 monedas"] }[g];
+    return n ? `<button class="cmd c-pasar g-${g}" onclick="clickGrupo('${g}')">${icono(g)}<span class="tit">${t}</span><span class="sub">${s}</span></button>` : "";
+  }
   return `<button class="cmd c-pasar g-pasar" ${n ? "" : "disabled"} onclick="clickGrupo('pasar')">${icono(g)}` +
     `<span class="tit">PASAR</span><span class="sub">Terminar el turno</span></button>`;
 }
@@ -418,7 +512,7 @@ function panelMenu() {
 function clickGrupo(g) {
   const ops = opsDe(g);
   if (!ops.length) return;
-  if (g === "atacar" || g === "ecuador") return elegirOp(ops[0].i);
+  if (g === "atacar" || g === "ecuador" || g === "cubo") return elegirOp(ops[0].i);
   if (g === "pasar") {
     const avisos = [];
     if (opsDe("atacar").length) avisos.push("podés atacar");
@@ -445,7 +539,7 @@ function render(d) {
   ajustarCartas(document.getElementById("tablero"));
   dibujarMenu();
   const log = document.getElementById("log");
-  log.textContent = d.log.join("\n");
+  log.innerHTML = logHTML(d.log, s.yo.nombre);
   log.scrollTop = log.scrollHeight;
 }
 

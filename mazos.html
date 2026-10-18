@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TC Pibes · Mis mazos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&family=Barlow+Condensed:wght@700;800&display=swap">
+<style>
+*{box-sizing:border-box}
+:root{--oro:#f5b301;--panel:#232333;--borde:#44445a;--fondo:#16161e}
+body{margin:0;min-height:100vh;color:#eee;background:var(--fondo);font:15px 'Barlow',system-ui,sans-serif}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background:radial-gradient(circle,#f5b30055 0 2px,transparent 3px) 0 0/96px 96px,radial-gradient(circle,#ffffff33 0 1.5px,transparent 2.5px) 48px 48px/96px 96px}
+button,input,select{font:inherit}
+.top{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 16px;
+  background:linear-gradient(#1e1e2bf2,#1a1a24f2);border-bottom:2px solid var(--borde);backdrop-filter:blur(6px)}
+.top h1{margin:0 6px 0 4px;font:800 32px/1 'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;
+  background:linear-gradient(#fff3b0,var(--oro) 60%,#a86f00);-webkit-background-clip:text;background-clip:text;color:transparent}
+.volver{color:#222;background:#fff;text-decoration:none;font-weight:700;padding:7px 14px;border-radius:10px}
+.volver:hover{background:#ffe9a8}
+.top .sp{flex:1}
+select{background:#2d2d40;color:#fff;border:2px solid var(--borde);border-radius:10px;padding:7px 10px;min-width:190px;font-weight:600}
+.btn{cursor:pointer;color:#fff;font-weight:700;border:2px solid #ffffffcc;border-radius:10px;padding:6px 12px;background:linear-gradient(#5a5a78,#3a3a52);box-shadow:0 3px 0 #0007}
+.btn:hover{filter:brightness(1.15)}.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #0007}
+.btn.verde{background:linear-gradient(#5be37d,#1fae4a 58%,#0f6b2c)}
+.btn.azul{background:linear-gradient(#66d4ff,#2d8fe0 58%,#1a5aa3)}
+.btn.oro{background:linear-gradient(#ffe45c,#f5a300 58%,#bf7000);color:#2a1a00;text-shadow:0 1px 0 #fff6}
+.btn.rojo{background:linear-gradient(#ff6b6b,#d62828 58%,#7a0c0c)}
+.btn:disabled{filter:grayscale(.9) brightness(.55);cursor:not-allowed}
+.btn.ch{padding:4px 9px;font-size:13px;border-width:1px;box-shadow:0 2px 0 #0007}
+
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 410px;gap:18px;padding:16px;max-width:1500px;margin:0 auto}
+@media(max-width:980px){.wrap{grid-template-columns:1fr}.col-mazo{position:static!important;height:auto!important;overflow:visible!important;order:-1}.lista{max-height:340px}}
+
+.filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;padding:10px;background:var(--panel);border:1px solid var(--borde);border-radius:14px}
+.chip{cursor:pointer;border:2px solid var(--borde);background:#2d2d40;color:#ddd;border-radius:999px;padding:4px 12px;font-weight:700;font-size:13.5px}
+.chip.on{background:var(--oro);border-color:#fff;color:#2a1a00}
+.filtros input{flex:1;min-width:140px;color:#222;background:#fff;border:2px solid var(--oro);border-radius:10px;padding:6px 10px;outline:none;font-weight:600}
+.cuenta{color:#9aa0b4;font-size:13px;margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 14px;padding:4px 2px 30px;border-radius:14px;transition:background .15s}
+.grid.suelta{background:#d6282826;outline:2px dashed #ff6b6b;outline-offset:4px}
+.t{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;--rc:150,150,165}
+.t .img{position:relative;width:100%;line-height:0;cursor:pointer;border-radius:5.7%/4.1%;transition:transform .15s,filter .2s;
+  box-shadow:0 0 0 2px rgba(var(--rc),.9),0 0 14px rgba(var(--rc),.45),0 6px 12px #000b}
+.t .img:hover{transform:translateY(-5px) scale(1.04);z-index:4;box-shadow:0 0 0 3px rgb(var(--rc)),0 0 26px rgba(var(--rc),.85),0 10px 20px #000c}
+.t img{width:100%;aspect-ratio:600/840;border-radius:5.7%/4.1%;background:#2a2a38}
+.t .img::after{content:"";position:absolute;inset:0;border-radius:5.7%/4.1%;pointer-events:none;mix-blend-mode:screen;
+  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.35) 48%,transparent 62%) 130% 0/260% 100%;transition:background-position .7s}
+.t .img:hover::after{background-position:-30% 0}
+.t .n{position:absolute;top:-8px;right:-8px;z-index:3;min-width:30px;height:30px;padding:0 6px;display:none;align-items:center;justify-content:center;
+  border-radius:15px;background:var(--oro);color:#2a1a00;border:2px solid #fff;font:800 15px 'Barlow',sans-serif;box-shadow:0 3px 8px #000a}
+.t.en .n{display:flex}
+.t.lleno .img{filter:grayscale(.7) brightness(.6)}
+.t.lleno .img::before{content:"MÁX.";position:absolute;inset:auto 0 44% 0;z-index:3;text-align:center;font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:#fff;text-shadow:0 2px 6px #000}
+.ctl{display:flex;align-items:center;gap:6px;background:#12121b;border:1px solid var(--borde);border-radius:10px;padding:2px 4px}
+.ctl button{cursor:pointer;width:28px;height:26px;border:0;border-radius:7px;background:#34344a;color:#fff;font:800 17px/1 'Barlow',sans-serif}
+.ctl button:hover:not(:disabled){background:var(--oro);color:#2a1a00}.ctl button:disabled{opacity:.35;cursor:not-allowed}
+.ctl span{min-width:42px;text-align:center;font-weight:700;font-size:13.5px;color:#ccd}
+.t.oculta{display:none}
+.vacio{grid-column:1/-1;text-align:center;color:#aab;padding:40px 10px}
+
+.col-mazo{position:sticky;top:72px;align-self:start;height:calc(100vh - 88px);display:flex;flex-direction:column;overflow:hidden;padding:14px;background:var(--panel);
+  border:2px solid var(--borde);border-radius:18px;box-shadow:0 8px 24px #0008;transition:border-color .15s,background .15s}
+.col-mazo.suelta{border-color:var(--oro);background:#2b2a22}
+.nombre{display:flex;gap:8px;align-items:center}
+.nombre input{flex:1;min-width:0;font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:transparent;
+  border:0;border-bottom:2px dashed var(--borde);padding:3px 2px;outline:none}
+.nombre input:focus{border-color:var(--oro)}
+.activo{font:800 12px 'Barlow',sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--oro);color:#2a1a00;white-space:nowrap}
+.cont{display:flex;align-items:baseline;gap:8px;margin:8px 0 6px}
+.cont b{font:800 40px/1 'Barlow Condensed',sans-serif;color:#fff}.cont b.ok{color:#8ff0a4}.cont b.mal{color:#ff9b9b}
+.cont small{color:#9aa0b4;font-weight:600}
+.barra{height:10px;background:#12121b;border-radius:6px;overflow:hidden;border:1px solid var(--borde)}
+.barra i{display:block;height:100%;width:0;background:linear-gradient(#ffd75e,#e0a000);transition:width .25s}
+.barra.ok i{background:linear-gradient(#7be07f,#2e9e3a)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.ct{font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:8px;background:#2d2d40;color:#ddd;border-left:4px solid var(--c,#888)}
+.curva{display:flex;align-items:flex-end;gap:8px;height:58px;margin:8px 0 4px;padding:4px 6px 0;background:#12121b;border:1px solid var(--borde);border-radius:10px}
+.curva div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:11px;color:#9aa0b4}
+.curva i{display:block;width:100%;min-height:2px;border-radius:4px 4px 0 0;background:linear-gradient(#ffe45c,#d68a00)}
+.curva b{font-size:12px;color:#fff}
+.lbl{font:700 12px 'Barlow',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9aa0b4;margin:10px 0 2px}
+.msg{margin:10px 0;padding:8px 10px;border-radius:10px;font-size:13.5px;line-height:1.4}
+.msg.ok{background:#12301c;color:#8ff0a4;border:1px solid #2e7d45}
+.msg.mal{background:#3a1616;color:#ffb0b0;border:1px solid #8e2b2b}
+.msg div+div{margin-top:3px}
+.col-mazo>*{flex:none}
+.lista{flex:1 1 auto!important;min-height:90px;overflow:auto;display:flex;flex-direction:column;gap:5px;margin:8px 0;padding-right:4px}
+.fila{display:flex;align-items:center;gap:8px;padding:5px 8px;background:#1a1a26;border:1px solid var(--borde);border-left:5px solid rgb(var(--rc,150,150,165));border-radius:10px;cursor:grab}
+.fila:hover{background:#26263a}
+.fila .co{width:26px;height:26px;display:flex;align-items:center;justify-content:center;flex:none;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);
+  background:#ffd60a;color:#2a1a00;font:800 13px 'Barlow',sans-serif}
+.fila .co.no{background:#555a70;color:#fff}
+.fila .nom{flex:1;min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fila .cat{font-size:11px;font-weight:800;letter-spacing:.05em;padding:2px 7px;border-radius:6px;color:#fff;text-transform:uppercase}
+.fila .ctl{padding:0}
+.vacia{text-align:center;color:#9aa0b4;padding:22px 8px;border:2px dashed var(--borde);border-radius:12px}
+.acciones{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.sep{height:1px;background:var(--borde);margin:14px 0}
+.nota{color:#9aa0b4;font-size:12.5px;line-height:1.45;margin-top:10px}
+.guardado{color:#8ff0a4;font-size:12px;opacity:0;transition:opacity .3s;margin-left:8px}.guardado.on{opacity:1}
+
+#vista{position:fixed;z-index:60;width:300px;pointer-events:none;display:none;filter:drop-shadow(0 12px 22px #000d)}
+#vista img{width:100%;display:block;border-radius:5.7%/4.1%}
+@media(hover:none){#vista{display:none!important}}
+#aviso{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:80;background:#111;color:#fff;border:2px solid var(--oro);border-radius:12px;padding:10px 18px;font-weight:700;display:none;box-shadow:0 8px 24px #000a}
+
+.col-mazo{top:calc(var(--top,56px) + 12px);height:calc(100vh - var(--top,56px) - 28px);overflow-x:hidden;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:#55557a transparent}
+.lista{min-height:130px}
+.acciones{position:sticky;bottom:0;z-index:6;margin:6px -14px -14px;padding:10px 14px 14px;
+  background:linear-gradient(#232333e6,#232333 30%);border-top:1px solid var(--borde)}
+.acciones .btn{flex:1 1 auto}
+</style>
+<body>
+<div class="top">
+  <a class="volver" href="/">← Menú</a>
+  <h1>Mis mazos</h1>
+  <select id="sel" title="Mazos guardados"></select>
+  <button class="btn azul" id="nuevo">+ Nuevo</button>
+  <button class="btn" id="dup">Duplicar</button>
+  <button class="btn rojo" id="del">Eliminar</button>
+  <span class="sp"></span>
+  <button class="btn" id="exp" title="Copia un código para compartir este mazo">Copiar código</button>
+  <button class="btn" id="imp" title="Pegá el código de un mazo">Importar</button>
+</div>
+
+<div class="wrap">
+  <section>
+    <div class="filtros">
+      <span id="cats"></span>
+      <select id="rar" style="min-width:0"><option value="">Todas las rarezas</option><option>Común</option><option>Raro</option><option>Épico</option><option>Legendario</option><option>Mítico</option></select>
+      <select id="ord" style="min-width:0"><option value="cat">Ordenar: categoría</option><option value="costo">Ordenar: costo</option><option value="rar">Ordenar: rareza</option><option value="nom">Ordenar: nombre</option></select>
+      <input id="q" placeholder="Buscar carta…" type="search">
+      <span class="cuenta" id="cuenta"></span>
+    </div>
+    <div class="grid" id="grid"><div class="vacio">Cargando cartas…</div></div>
+  </section>
+
+  <aside class="col-mazo" id="panel">
+    <div class="nombre"><input id="nom" maxlength="30" placeholder="Nombre del mazo"><span id="act"></span></div>
+    <div class="cont"><b id="tot">0</b><small id="meta">/ 20 cartas</small><span class="guardado" id="gd">✓ guardado</span></div>
+    <div class="barra" id="bar"><i></i></div>
+    <div class="chips" id="resumen"></div>
+    <div class="lbl">Curva de energía (cartas de combate)</div>
+    <div class="curva" id="curva"></div>
+    <div id="msg"></div>
+    <div class="lbl">Cartas del mazo</div>
+    <div class="lista" id="lista"></div>
+    <div class="nota">Clic para sumar · clic derecho para quitar · arrastrá cartas al mazo o de vuelta a la colección. Se guarda solo. El mazo con ★ es el que usás al jugar.</div>
+    <div class="acciones">
+      <button class="btn oro" id="usar">★ Usar este mazo</button>
+      <button class="btn verde" id="azar">🎲 Completar al azar</button>
+      <button class="btn" id="vaciar">Vaciar</button>
+    </div>
+  </aside>
+</div>
+<div id="vista"><img alt=""></div>
+<div id="aviso"></div>
+
+<script>
+var CATS=["Atacante","Tanque","Mago","Partidario","Equipable","Terreno"];
+var COMBATE=["Atacante","Tanque","Mago"];
+var COLOR_CAT={Atacante:"#d6453d",Tanque:"#2f6fd1",Mago:"#8b46c9",Partidario:"#23a455",Terreno:"#a8741f",Equipable:"#d9781c"};
+var RGB_RAR={"Común":"150,150,165","Raro":"34,197,94","Épico":"168,85,247","Legendario":"245,179,1","Mítico":"225,29,154"};
+var RANGO={"Mítico":5,"Legendario":4,"Épico":3,"Raro":2,"Común":1,"":0};
+var CARTAS=[],REGLAS={tam:20,min_combate:6},POR={};
+var F={cat:"",rar:"",q:"",ord:"cat"};
+var DB={mazos:[],activo:null,sel:null};
+var $=function(i){return document.getElementById(i)};
+var esCombate=function(c){return COMBATE.indexOf(c.categoria)>=0};
+var rgb=function(c){return RGB_RAR[c.rareza]||"150,150,165"};
+var imgSrc=function(n){return "/carta/"+encodeURIComponent(n)+".png"};
+
+function cargarDB(){try{var d=JSON.parse(localStorage.getItem("tcg_mazos")||"null");if(d&&Array.isArray(d.mazos))DB=d}catch(e){}
+  DB.mazos=DB.mazos.filter(function(m){return m&&m.cartas});}
+function nuevoId(){return "m"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
+function actual(){return DB.mazos.filter(function(m){return m.id===DB.sel})[0]||null}
+function lista(m){var out=[];Object.keys(m.cartas).forEach(function(n){for(var i=0;i<m.cartas[n];i++)out.push(n)});return out}
+function total(m){return lista(m).length}
+function totalCombate(m){var t=0;Object.keys(m.cartas).forEach(function(n){if(POR[n]&&esCombate(POR[n]))t+=m.cartas[n]});return t}
+function errores(m){var e=[],t=total(m);
+  if(t!==REGLAS.tam)e.push("Tiene que tener "+REGLAS.tam+" cartas (ahora "+t+").");
+  Object.keys(m.cartas).forEach(function(n){var c=POR[n];if(c&&m.cartas[n]>c.copias)e.push("«"+n+"»: máximo "+c.copias+" copia(s).")});
+  var cb=totalCombate(m);if(cb<REGLAS.min_combate)e.push("Necesita al menos "+REGLAS.min_combate+" cartas de combate (tiene "+cb+").");
+  return e}
+function sincronizarCookie(){
+  var m=DB.mazos.filter(function(x){return x.id===DB.activo})[0];
+  if(m&&!errores(m).length)document.cookie="mazo="+encodeURIComponent(lista(m).join("|"))+";Path=/;Max-Age=31536000;SameSite=Lax";
+  else document.cookie="mazo=;Path=/;Max-Age=0;SameSite=Lax"}
+var tGuardado=null;
+function guardar(){localStorage.setItem("tcg_mazos",JSON.stringify(DB));sincronizarCookie();
+  $("gd").classList.add("on");clearTimeout(tGuardado);tGuardado=setTimeout(function(){$("gd").classList.remove("on")},1100)}
+function aviso(t){var a=$("aviso");a.textContent=t;a.style.display="block";clearTimeout(aviso.t);aviso.t=setTimeout(function(){a.style.display="none"},2200)}
+
+function sumar(n){var m=actual(),c=POR[n];if(!m||!c)return;var v=m.cartas[n]||0;
+  if(total(m)>=REGLAS.tam){aviso("El mazo ya tiene "+REGLAS.tam+" cartas");return}
+  if(v>=c.copias){aviso("«"+n+"»: máximo "+c.copias+" copia(s)");return}
+  m.cartas[n]=v+1;cambio()}
+function restar(n){var m=actual();if(!m||!m.cartas[n])return;m.cartas[n]--;if(!m.cartas[n])delete m.cartas[n];cambio()}
+function cambio(){guardar();pintar()}
+function completar(){var m=actual();if(!m)return;var t=total(m),cb=totalCombate(m);
+  while(t<REGLAS.tam){var falta=Math.max(0,REGLAS.min_combate-cb),forzar=falta>=REGLAS.tam-t;
+    var op=CARTAS.filter(function(c){return (m.cartas[c.nombre]||0)<c.copias&&(!forzar||esCombate(c))});
+    if(!op.length)break;var c=op[Math.floor(Math.random()*op.length)];m.cartas[c.nombre]=(m.cartas[c.nombre]||0)+1;t++;if(esCombate(c))cb++}
+  cambio()}
+function nuevoMazo(nombre,cartas){var m={id:nuevoId(),nombre:nombre||"Mazo "+(DB.mazos.length+1),cartas:cartas||{}};
+  DB.mazos.push(m);DB.sel=m.id;if(!DB.activo)DB.activo=m.id;guardar();pintar();return m}
+
+var vista=$("vista"),vimg=vista.getElementsByTagName("img")[0];
+function mostrarVista(n,e){vimg.src=imgSrc(n);vista.style.display="block";moverVista(e)}
+function moverVista(e){var x=e.clientX+26,y=Math.min(Math.max(8,e.clientY-210),innerHeight-436);if(x+310>innerWidth)x=e.clientX-326;vista.style.left=x+"px";vista.style.top=y+"px"}
+function ocultarVista(){vista.style.display="none"}
+
+var TILES={};
+function construirColeccion(){
+  var g=$("grid");g.innerHTML="";
+  CARTAS.forEach(function(c){
+    var t=document.createElement("div");t.className="t";t.style.setProperty("--rc",rgb(c));t.draggable=true;t.dataset.n=c.nombre;
+    t.innerHTML='<div class="img"><span class="n"></span><img draggable="false" loading="lazy" alt=""></div>'+
+      '<div class="ctl"><button class="m" title="Quitar una copia">−</button><span></span><button class="p" title="Sumar una copia">+</button></div>';
+    t.querySelector("img").src=imgSrc(c.nombre);t.querySelector("img").alt=c.nombre;
+    var im=t.querySelector(".img");
+    im.onclick=function(){sumar(c.nombre)};
+    im.oncontextmenu=function(e){e.preventDefault();restar(c.nombre)};
+    im.onmouseenter=function(e){mostrarVista(c.nombre,e)};im.onmousemove=moverVista;im.onmouseleave=ocultarVista;
+    t.querySelector(".p").onclick=function(){sumar(c.nombre)};t.querySelector(".m").onclick=function(){restar(c.nombre)};
+    t.ondragstart=function(e){e.dataTransfer.setData("text/plain",JSON.stringify({o:"col",n:c.nombre}));e.dataTransfer.effectAllowed="copy";ocultarVista()};
+    TILES[c.nombre]=t;
+  });
+  var v=document.createElement("div");v.className="vacio";v.id="nada";v.style.display="none";v.textContent="Ninguna carta coincide con los filtros.";g.appendChild(v);
+}
+function ordenar(a,b){
+  if(F.ord==="costo")return (a.costo||0)-(b.costo||0)||CATS.indexOf(a.categoria)-CATS.indexOf(b.categoria)||a.nombre.localeCompare(b.nombre);
+  if(F.ord==="rar")return RANGO[b.rareza]-RANGO[a.rareza]||a.nombre.localeCompare(b.nombre);
+  if(F.ord==="nom")return a.nombre.localeCompare(b.nombre);
+  return CATS.indexOf(a.categoria)-CATS.indexOf(b.categoria)||(a.costo||0)-(b.costo||0)||a.nombre.localeCompare(b.nombre)}
+function norm(s){return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}
+function filtrar(){
+  var g=$("grid"),q=norm(F.q.trim()),vis=0;
+  CARTAS.slice().sort(ordenar).forEach(function(c){
+    var t=TILES[c.nombre];g.insertBefore(t,$("nada"));
+    var ok=(!F.cat||c.categoria===F.cat)&&(!F.rar||c.rareza===F.rar)&&(!q||norm(c.nombre).indexOf(q)>=0||norm(c.habilidad).indexOf(q)>=0||norm(c.efecto).indexOf(q)>=0);
+    t.classList.toggle("oculta",!ok);if(ok)vis++});
+  $("nada").style.display=vis?"none":"block";
+  $("cuenta").textContent=vis+" de "+CARTAS.length+" cartas"}
+
+function pintar(){
+  var m=actual();
+  var sel=$("sel");sel.innerHTML="";
+  DB.mazos.forEach(function(x){var o=document.createElement("option");o.value=x.id;o.textContent=(x.id===DB.activo?"★ ":"")+x.nombre+" ("+total(x)+"/"+REGLAS.tam+")";sel.appendChild(o)});
+  if(m)sel.value=m.id;
+  $("del").disabled=!m;$("dup").disabled=!m;$("exp").disabled=!m;
+  if(!m)return;
+  CARTAS.forEach(function(c){var t=TILES[c.nombre],v=m.cartas[c.nombre]||0,lleno=total(m)>=REGLAS.tam||v>=c.copias;
+    t.classList.toggle("en",v>0);t.classList.toggle("lleno",lleno&&v>=c.copias);
+    t.querySelector(".n").textContent="×"+v;t.querySelector(".ctl span").textContent=v+" / "+c.copias;
+    t.querySelector(".p").disabled=v>=c.copias||total(m)>=REGLAS.tam;t.querySelector(".m").disabled=v===0});
+  if(document.activeElement!==$("nom"))$("nom").value=m.nombre;
+  var t=total(m),errs=errores(m),valido=!errs.length;
+  $("act").innerHTML=m.id===DB.activo?'<span class="activo">★ Activo</span>':"";
+  $("tot").textContent=t;$("tot").className=t===REGLAS.tam?"ok":t>REGLAS.tam?"mal":"";
+  $("meta").textContent="/ "+REGLAS.tam+" cartas";
+  $("bar").className="barra"+(t===REGLAS.tam?" ok":"");$("bar").firstChild.style.width=Math.min(100,100*t/REGLAS.tam)+"%";
+  var cuenta={};Object.keys(m.cartas).forEach(function(n){var c=POR[n];if(c)cuenta[c.categoria]=(cuenta[c.categoria]||0)+m.cartas[n]});
+  $("resumen").innerHTML=CATS.filter(function(k){return cuenta[k]}).map(function(k){return '<span class="ct" style="--c:'+COLOR_CAT[k]+'">'+k+' '+cuenta[k]+'</span>'}).join("")||'<span class="ct">Sin cartas todavía</span>';
+  var cur=[0,0,0,0,0,0];Object.keys(m.cartas).forEach(function(n){var c=POR[n];if(c&&esCombate(c))cur[Math.min(5,Math.max(1,c.costo))]+=m.cartas[n]});
+  var mx=Math.max(1,Math.max.apply(null,cur));
+  $("curva").innerHTML=[1,2,3,4,5].map(function(k){return '<div><b>'+(cur[k]||"")+'</b><i style="height:'+(cur[k]?Math.max(6,Math.round(38*cur[k]/mx)):2)+'px;'+(cur[k]?"":"opacity:.25")+'"></i>'+k+'⚡</div>'}).join("");
+  $("msg").innerHTML=valido?'<div class="msg ok">✔ Mazo válido y listo para jugar.</div>'
+    :'<div class="msg mal">'+errs.map(function(e){return "<div>• "+e+"</div>"}).join("")+(m.id===DB.activo?'<div style="margin-top:6px;color:#ffd3a0">Mientras no sea válido, jugás con un mazo al azar.</div>':"")+'</div>';
+  var nombres=Object.keys(m.cartas).filter(function(n){return POR[n]}).sort(function(a,b){return ordenar({categoria:POR[a].categoria,costo:POR[a].costo,nombre:a,rareza:POR[a].rareza},{categoria:POR[b].categoria,costo:POR[b].costo,nombre:b,rareza:POR[b].rareza})});
+  var L=$("lista");L.innerHTML="";
+  if(!nombres.length)L.innerHTML='<div class="vacia">El mazo está vacío.<br>Hacé clic en las cartas o arrastralas hasta acá.</div>';
+  nombres.forEach(function(n){var c=POR[n],f=document.createElement("div");f.className="fila";f.style.setProperty("--rc",rgb(c));f.draggable=true;
+    f.innerHTML='<span class="co'+(esCombate(c)?"":" no")+'">'+(esCombate(c)?c.costo:"•")+'</span><span class="nom"></span><span class="cat" style="background:'+COLOR_CAT[c.categoria]+'">'+c.categoria.slice(0,3)+'</span>'+
+      '<div class="ctl"><button class="m">−</button><span>×'+m.cartas[n]+'</span><button class="p"'+(m.cartas[n]>=c.copias||t>=REGLAS.tam?" disabled":"")+'>+</button></div>';
+    f.querySelector(".nom").textContent=n;
+    f.querySelector(".m").onclick=function(){restar(n)};f.querySelector(".p").onclick=function(){sumar(n)};
+    f.onmouseenter=function(e){mostrarVista(n,e)};f.onmousemove=moverVista;f.onmouseleave=ocultarVista;
+    f.ondragstart=function(e){e.dataTransfer.setData("text/plain",JSON.stringify({o:"mazo",n:n}));e.dataTransfer.effectAllowed="move";ocultarVista()};
+    L.appendChild(f)});
+  $("usar").disabled=m.id===DB.activo;$("usar").textContent=m.id===DB.activo?"★ Es tu mazo activo":"★ Usar este mazo";
+  $("vaciar").disabled=!t;$("azar").disabled=t>=REGLAS.tam;
+}
+
+function leerDrop(e){try{return JSON.parse(e.dataTransfer.getData("text/plain"))}catch(x){return null}}
+function zonaDrop(el,ok){el.ondragover=function(e){e.preventDefault();el.classList.add("suelta")};el.ondragleave=function(e){if(!el.contains(e.relatedTarget))el.classList.remove("suelta")};
+  el.ondrop=function(e){e.preventDefault();el.classList.remove("suelta");var d=leerDrop(e);if(d)ok(d)}}
+function iniciarEventos(){
+  zonaDrop($("panel"),function(d){if(d.o==="col")sumar(d.n)});
+  zonaDrop($("grid"),function(d){if(d.o==="mazo")restar(d.n)});
+  $("sel").onchange=function(){DB.sel=this.value;guardar();pintar()};
+  $("nuevo").onclick=function(){nuevoMazo()};
+  $("dup").onclick=function(){var m=actual();if(m)nuevoMazo(m.nombre+" (copia)",JSON.parse(JSON.stringify(m.cartas)))};
+  $("del").onclick=function(){var m=actual();if(!m||!confirm("¿Eliminar el mazo «"+m.nombre+"»?"))return;
+    DB.mazos=DB.mazos.filter(function(x){return x.id!==m.id});
+    if(DB.activo===m.id)DB.activo=DB.mazos.length?DB.mazos[0].id:null;DB.sel=DB.mazos.length?DB.mazos[0].id:null;
+    if(!DB.mazos.length)nuevoMazo();else{guardar();pintar()}};
+  $("nom").oninput=function(){var m=actual();if(m){m.nombre=this.value||"Sin nombre";guardar();var o=$("sel").selectedOptions[0];if(o)o.textContent=(m.id===DB.activo?"★ ":"")+m.nombre+" ("+total(m)+"/"+REGLAS.tam+")"}};
+  $("usar").onclick=function(){var m=actual();if(!m)return;DB.activo=m.id;guardar();pintar();
+    aviso(errores(m).length?"Marcado como activo, pero hasta que sea válido jugás con un mazo al azar":"¡Listo! Vas a jugar con «"+m.nombre+"»")};
+  $("azar").onclick=completar;
+  $("vaciar").onclick=function(){var m=actual();if(m&&total(m)&&confirm("¿Sacar todas las cartas del mazo?")){m.cartas={};cambio()}};
+  $("exp").onclick=function(){var m=actual();if(!m)return;
+    var cod=btoa(unescape(encodeURIComponent(JSON.stringify({n:m.nombre,c:m.cartas}))));
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(cod).then(function(){aviso("Código copiado: pegalo en «Importar»")},function(){prompt("Copiá este código:",cod)});
+    else prompt("Copiá este código:",cod)};
+  $("imp").onclick=function(){var cod=prompt("Pegá el código del mazo:");if(!cod)return;
+    try{var d=JSON.parse(decodeURIComponent(escape(atob(cod.trim())))),cartas={};
+      Object.keys(d.c||{}).forEach(function(n){if(POR[n]&&d.c[n]>0)cartas[n]=Math.min(d.c[n],POR[n].copias)});
+      if(!Object.keys(cartas).length)throw 0;nuevoMazo(String(d.n||"Mazo importado").slice(0,30),cartas);aviso("Mazo importado")}
+    catch(e){aviso("Ese código no es válido")}};
+  var cats=[""].concat(CATS);
+  $("cats").innerHTML=cats.map(function(k){return '<button class="chip'+(k===""?" on":"")+'" data-k="'+k+'">'+(k||"Todas")+'</button>'}).join(" ");
+  $("cats").onclick=function(e){var b=e.target.closest(".chip");if(!b)return;F.cat=b.dataset.k;[].forEach.call($("cats").children,function(x){x.classList.toggle("on",x===b)});filtrar()};
+  $("rar").onchange=function(){F.rar=this.value;filtrar()};
+  $("ord").onchange=function(){F.ord=this.value;filtrar();pintar()};
+  $("q").oninput=function(){F.q=this.value;filtrar()};
+}
+
+fetch("/api/cartas",{cache:"no-store"}).then(function(r){return r.json()}).then(function(d){
+  CARTAS=d.cartas;REGLAS=d.reglas;CARTAS.forEach(function(c){POR[c.nombre]=c});
+  cargarDB();
+  DB.mazos.forEach(function(m){Object.keys(m.cartas).forEach(function(n){if(!POR[n])delete m.cartas[n]})});
+  if(!DB.mazos.length)DB.mazos.push({id:nuevoId(),nombre:"Mi primer mazo",cartas:{}});
+  if(!DB.sel||!actual())DB.sel=DB.mazos[0].id;
+  if(!DB.activo||!DB.mazos.some(function(m){return m.id===DB.activo}))DB.activo=DB.mazos[0].id;
+  construirColeccion();iniciarEventos();filtrar();pintar();sincronizarCookie();localStorage.setItem("tcg_mazos",JSON.stringify(DB));
+}).catch(function(){$("grid").innerHTML='<div class="vacio">No pude cargar las cartas. ¿El servidor está abierto?</div>'});
+(function(){var t=document.querySelector(".top");function m(){document.documentElement.style.setProperty("--top",t.offsetHeight+"px")}
+m();addEventListener("resize",m);if(window.ResizeObserver)new ResizeObserver(m).observe(t)})();
+</script>
+</html>
